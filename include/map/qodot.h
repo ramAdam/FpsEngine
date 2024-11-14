@@ -3,6 +3,7 @@
 
 #include "geo_generator.h"
 #include "map_parser.h"
+#include "raylib.h"
 #include "surface_gatherer.h"
 #include <memory>
 #include <string>
@@ -26,26 +27,7 @@ struct TextureSize {
 // };
 
 // Required structs
-struct Vector2 {
-	float x, y;
-	Vector2(float u, float v) :
-			x(u), y(v) {}
-};
-
-struct Vector3 {
-	float x, y, z;
-	Vector3(float x, float y, float z) :
-			x(x), y(z), z(z) {}
-	Vector3 operator/(float scalar) const {
-		return Vector3(x / scalar, y / scalar, z / scalar);
-	}
-};
-
-struct Vector4 {
-	float x, y, z, w;
-	Vector4(float x, float y, float z, float w) :
-			x(x), y(y), z(z), w(w) {}
-};
+// Remove Vector2, Vector3, Vector4 structs as we'll use raylib's
 
 struct MeshData {
 	std::vector<Vector3> vertices;

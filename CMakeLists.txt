@@ -10,13 +10,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include/map
-    )
-    
-# Collect source files
-file(GLOB_RECURSE SOURCES 
-    "src/map/*.cpp"
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/renderer
 )
 
-# Create library target (assuming this is meant to be a library)
-add_library(${PROJECT_NAME} SHARED ${SOURCES})
+# Collect source files
+file(GLOB_RECURSE SOURCES 
+    "src/*.cpp"
+    "include/*.cpp"
+)
+
+# Add raylib
+find_package(raylib REQUIRED)
+
+# Create the target BEFORE linking
+add_executable(qodot ${SOURCES})
+
+# Now we can link libraries
+target_link_libraries(qodot PRIVATE raylib)
 

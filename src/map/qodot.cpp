@@ -98,9 +98,12 @@ std::vector<EntityData> Qodot::get_entity_dicts() {
 			const LMEntity *ent = &ents[i];
 			EntityData entity_data{
 				ent->brush_count,
-				{},
-				Vector3(ent->center.y, ent->center.z, ent->center.x),
-				{}
+				{}, // empty vector/container
+				Vector3{
+						static_cast<float>(ent->center.y),
+						static_cast<float>(ent->center.z),
+						static_cast<float>(ent->center.x) },
+				{} // empty vector/container
 			};
 
 			// Process brush indices
@@ -281,45 +284,49 @@ std::vector<MeshData> Qodot::fetch_surfaces(double inverse_scale_factor) {
 		}
 
 		MeshData mesh_data;
+		float scale = static_cast<float>(inverse_scale_factor);
 
 		// Convert vertices
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			Vector3 vertex(
-					surf->vertices[v].vertex.y,
-					surf->vertices[v].vertex.z,
-					surf->vertices[v].vertex.x);
-			vertex = vertex / inverse_scale_factor;
+			Vector3 vertex = {
+				static_cast<float>(surf->vertices[v].vertex.x) / scale,
+				static_cast<float>(surf->vertices[v].vertex.y) / scale,
+				static_cast<float>(surf->vertices[v].vertex.z) / scale
+			};
 			mesh_data.vertices.push_back(vertex);
 		}
 
 		// Convert normals
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			Vector3 normal(
-					surf->vertices[v].normal.y,
-					surf->vertices[v].normal.z,
-					surf->vertices[v].normal.x);
+			Vector3 normal = {
+				static_cast<float>(surf->vertices[v].normal.y),
+				static_cast<float>(surf->vertices[v].normal.z),
+				static_cast<float>(surf->vertices[v].normal.x)
+			};
 			mesh_data.normals.push_back(normal);
 		}
 
 		// Convert tangents
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			Vector4 tangent(
-					surf->vertices[v].tangent.y,
-					surf->vertices[v].tangent.z,
-					surf->vertices[v].tangent.x,
-					surf->vertices[v].tangent.w);
+			Vector4 tangent = {
+				static_cast<float>(surf->vertices[v].tangent.y),
+				static_cast<float>(surf->vertices[v].tangent.z),
+				static_cast<float>(surf->vertices[v].tangent.x),
+				static_cast<float>(surf->vertices[v].tangent.w)
+			};
 			mesh_data.tangents.push_back(tangent);
 		}
 
 		// Convert UVs
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			Vector2 uv(
-					surf->vertices[v].uv.u,
-					surf->vertices[v].uv.v);
+			Vector2 uv = {
+				static_cast<float>(surf->vertices[v].uv.u),
+				static_cast<float>(surf->vertices[v].uv.v)
+			};
 			mesh_data.uvs.push_back(uv);
 		}
 
-		// Convert indices
+		// Convert indices (unchanged)
 		for (int i = 0; i < surf->index_count; ++i) {
 			mesh_data.indices.push_back(surf->indices[i]);
 		}
