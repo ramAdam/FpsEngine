@@ -1,6 +1,6 @@
 # Minimum CMake version and project name
 cmake_minimum_required(VERSION 3.10)
-project(qodot)
+project(BSPEngine)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -23,8 +23,8 @@ file(GLOB_RECURSE SOURCES
 find_package(raylib REQUIRED)
 
 # Create the target BEFORE linking
-add_executable(qodot ${SOURCES})
+add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
 
 # Now we can link libraries
-target_link_libraries(qodot PRIVATE raylib)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE raylib)
 

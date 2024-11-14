@@ -1,10 +1,8 @@
 #include "raylib_renderer.h"
-#include <memory>
-// include iostream
 #include <iostream>
+#include <memory>
 
 int main(int argc, char *argv[]) {
-	// RaylibRenderer renderer;
 	auto renderer = std::make_unique<RaylibRenderer>();
 	renderer->init(800, 600, "Qodot Raylib Renderer");
 
