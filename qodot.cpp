@@ -4,216 +4,250 @@
 #include "map_data.h"
 #include "map_parser.h"
 #include "surface_gatherer.h"
-#include "scene/resources/mesh.h"
+#include <iostream> // for std::cerr
+#include <stdexcept> // for std::runtime_error
 
-void Qodot::load_map(const String &map_file_str) {
-	CharString map_file = map_file_str.utf8();
-	map_parser.map_parser_load(map_file);
+using namespace std;
+
+void Qodot::load_map(const string &map_file) {
+	map_parser.map_parser_load(map_file.c_str());
 }
 
-PoolStringArray Qodot::get_texture_list() {
-	PoolStringArray g_textures;
-	int tex_count = map_data->map_data_get_texture_count();
-	LMTextureData *textures = map_data->map_data_get_textures();
+std::vector<std::string> Qodot::get_texture_list() {
+	std::vector<std::string> textures;
 
-	g_textures.resize(tex_count);
+	// Validate map data
+	if (!map_data) {
+		throw std::runtime_error("map_data is null");
+	}
+
+	int tex_count = map_data->map_data_get_texture_count();
+	if (tex_count <= 0) {
+		return textures;
+	}
+
+	LMTextureData *texture_data = map_data->map_data_get_textures();
+	if (!texture_data) {
+		throw std::runtime_error("Failed to get textures");
+	}
+
+	textures.reserve(tex_count);
 
 	for (int i = 0; i < tex_count; i++) {
-		LMTextureData *texture = &textures[i];
-		String g_name;
-		g_name.parse_utf8(texture->name);
-		g_textures.set(i, g_name);
-	}
-
-	return g_textures;
-}
-
-void Qodot::set_entity_definitions(Dictionary p_entity_defs) {
-	for (int i = 0; i < p_entity_defs.size(); i++) {
-		String key = p_entity_defs.get_key_at_index(i);
-		int value = p_entity_defs.get_value_at_index(i).get("spawn_type");
-		CharString key_cs = key.utf8();
-		map_parser.map_data->map_data_set_spawn_type_by_classname(key_cs, (ENTITY_SPAWN_TYPE)value);
-	}
-}
-
-void Qodot::set_worldspawn_layers(Array p_worldspawn_layers) {
-	for (int i = 0; i < p_worldspawn_layers.size(); i++) {
-		Dictionary worldspawn_layer = p_worldspawn_layers.get(i);
-
-		bool build_visuals = false;
-		CharString texture = NULL;
-
-		for (int k = 0; k < worldspawn_layer.size(); k++) {
-			String key = worldspawn_layer.get_key_at_index(k);
-			if (key == "texture") {
-				String value = worldspawn_layer.get_value_at_index(k);
-				texture = value.utf8();
-			} else if (key == "build_visuals") {
-				build_visuals = worldspawn_layer.get_value_at_index(k);
-			}
+		if (texture_data[i].name) {
+			textures.push_back(std::string(texture_data[i].name));
 		}
-		map_data->map_data_register_worldspawn_layer(texture, build_visuals);
+	}
+
+	return textures;
+}
+
+void Qodot::set_entity_definitions(const std::unordered_map<std::string, ENTITY_SPAWN_TYPE> &entity_defs) {
+	try {
+		for (const auto &[classname, spawn_type] : entity_defs) {
+			if (classname.empty()) {
+				continue;
+			}
+			map_parser.map_data->map_data_set_spawn_type_by_classname(
+					classname.c_str(),
+					static_cast<int>(spawn_type));
+		}
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to set entity definitions: " + std::string(e.what()));
 	}
 }
 
-void Qodot::generate_geometry(Dictionary p_texture_dict) {
-	Array texture_keys = p_texture_dict.keys();
-	for (int i = 0; i < texture_keys.size(); i++) {
-		String texture_key = texture_keys.get(i);
-		Vector2 value = p_texture_dict.get_value_at_index(i);
+void Qodot::set_worldspawn_layers(const std::vector<WorldspawnLayer> &worldspawn_layers) {
+	try {
+		for (const auto &layer : worldspawn_layers) {
+			if (layer.texture.empty()) {
+				continue;
+			}
 
-		int width = value.x;
-		int height = value.y;
-
-		CharString texture_key_cs = texture_key.utf8();
-
-		map_data->map_data_set_texture_size(texture_key_cs, width, height);
+			map_data->map_data_register_worldspawn_layer(
+					layer.texture.c_str(),
+					layer.build_visuals);
+		}
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to set worldspawn layers: " + std::string(e.what()));
 	}
+}
+
+void Qodot::generate_geometry(std::unordered_map<std::string, TextureSize> texture_dict) {
+	// Iterate through map entries
+	for (const auto &[texture_key, size] : texture_dict) {
+		int width = size.width;
+		int height = size.height;
+
+		// Pass raw C string to map_data
+		map_data->map_data_set_texture_size(texture_key.c_str(), width, height);
+	}
+
 	geo_generator.geo_generator_run();
 }
 
-Array Qodot::get_entity_dicts() {
-	int ent_count = map_data->map_data_get_entity_count();
-	const LMEntity *ents = map_data->map_data_get_entities();
+std::vector<EntityData> Qodot::get_entity_dicts() {
+	try {
+		int ent_count = map_data->map_data_get_entity_count();
+		const LMEntity *ents = map_data->map_data_get_entities();
 
-	Array ent_dicts;
+		std::vector<EntityData> entity_dicts;
+		entity_dicts.reserve(ent_count);
 
-	for (int i = 0; i < ent_count; i++) {
-		const LMEntity *ent = &ents[i];
-		Dictionary entity_dict;
+		for (int i = 0; i < ent_count; i++) {
+			const LMEntity *ent = &ents[i];
+			EntityData entity_data{
+				ent->brush_count,
+				{},
+				Vector3(ent->center.y, ent->center.z, ent->center.x),
+				{}
+			};
 
-		// Brush count
-		entity_dict["brush_count"] = ent->brush_count;
+			// Process brush indices
+			for (int b = 0; b < ent->brush_count; b++) {
+				const LMBrush *brush = &ent->brushes[b];
+				bool is_worldspawn_layer_brush = false;
 
-		// Brush indices
-		PoolIntArray brush_indices;
+				for (int f = 0; f < brush->face_count; f++) {
+					const face *face = &brush->faces[f];
+					if (map_data->map_data_find_worldspawn_layer(face->texture_idx) != -1) {
+						is_worldspawn_layer_brush = true;
+						break;
+					}
+				}
 
-		for (int b = 0; b < ent->brush_count; b++) {
-			const LMBrush *brush = &ent->brushes[b];
-			bool is_worldspawn_layer_brush = false;
-
-			for (int f = 0; f < brush->face_count; f++) {
-				const face *face = &brush->faces[f];
-
-				if (map_data->map_data_find_worldspawn_layer(face->texture_idx) != -1) {
-					is_worldspawn_layer_brush = true;
-					break;
+				if (!is_worldspawn_layer_brush) {
+					entity_data.brush_indices.push_back(b);
 				}
 			}
-			if (!is_worldspawn_layer_brush) {
-				brush_indices.append(b);
+
+			// Process properties
+			for (int p = 0; p < ent->property_count; p++) {
+				LMProperty *prop = &ent->properties[p];
+				entity_data.properties[prop->key] = prop->value;
 			}
+
+			entity_dicts.push_back(std::move(entity_data));
 		}
 
-		entity_dict["brush_indices"] = brush_indices;
-
-		entity_dict["center"] = Vector3(ent->center.y, ent->center.z, ent->center.x);
-
-		Dictionary entity_properties;
-
-		for (int p = 0; p < ent->property_count; p++) {
-			LMProperty *prop = &ent->properties[p];
-			entity_properties[String::utf8(prop->key)] = String::utf8(prop->value);
-		}
-
-		entity_dict["properties"] = entity_properties;
-
-		ent_dicts.append(entity_dict);
+		return entity_dicts;
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to get entity dictionaries: " + std::string(e.what()));
 	}
-
-	return ent_dicts;
 }
 
-Array Qodot::get_worldspawn_layer_dicts() {
-	const LMEntity *ents = map_data->map_data_get_entities();
-	const LMEntity *worldspawn_entity = &ents[0];
+std::vector<WorldspawnLayerData> Qodot::get_worldspawn_layer_dicts() {
+	std::vector<WorldspawnLayerData> worldspawn_layer_dicts;
 
-	Array worldspawn_layer_dicts;
+	try {
+		const LMEntity *ents = map_data->map_data_get_entities();
+		const LMEntity *worldspawn_entity = &ents[0];
 
-	if (worldspawn_entity == NULL) {
-		return worldspawn_layer_dicts;
-	}
-
-	int layer_count = map_data->map_data_get_worldspawn_layer_count();
-	const LMWorldspawnLayer *layers = map_data->map_data_get_worldspawn_layers();
-
-	for (int l = 0; l < layer_count; l++) {
-		const LMWorldspawnLayer *worldspawn_layer = &layers[l];
-
-		Dictionary layer_dict;
-
-		LMTextureData *tex_data = map_data->map_data_get_texture(worldspawn_layer->texture_idx);
-		if (tex_data == NULL) {
-			continue;
+		if (worldspawn_entity == nullptr) {
+			return worldspawn_layer_dicts;
 		}
 
-		layer_dict["texture"] = String::utf8(tex_data->name);
+		int layer_count = map_data->map_data_get_worldspawn_layer_count();
+		const LMWorldspawnLayer *layers = map_data->map_data_get_worldspawn_layers();
 
-		PoolIntArray brush_indices;
+		worldspawn_layer_dicts.reserve(layer_count);
 
-		for (int b = 0; b < worldspawn_entity->brush_count; ++b) {
-			const LMBrush *brush = &worldspawn_entity->brushes[b];
-			bool is_layer_brush = false;
+		for (int l = 0; l < layer_count; l++) {
+			const LMWorldspawnLayer *worldspawn_layer = &layers[l];
+			WorldspawnLayerData layer_data;
 
-			for (int f = 0; f < brush->face_count; ++f) {
-				const face *face = &brush->faces[f];
+			LMTextureData *tex_data = map_data->map_data_get_texture(worldspawn_layer->texture_idx);
+			if (tex_data == nullptr) {
+				continue;
+			}
 
-				if (face->texture_idx == worldspawn_layer->texture_idx) {
-					is_layer_brush = true;
-					break;
+			layer_data.texture = tex_data->name;
+
+			// Process brush indices
+			for (int b = 0; b < worldspawn_entity->brush_count; ++b) {
+				const LMBrush *brush = &worldspawn_entity->brushes[b];
+				bool is_layer_brush = false;
+
+				for (int f = 0; f < brush->face_count; ++f) {
+					const face *face = &brush->faces[f];
+					if (face->texture_idx == worldspawn_layer->texture_idx) {
+						is_layer_brush = true;
+						break;
+					}
+				}
+
+				if (is_layer_brush) {
+					layer_data.brush_indices.push_back(b);
 				}
 			}
 
-			if (is_layer_brush) {
-				brush_indices.append(b);
-			}
+			worldspawn_layer_dicts.push_back(std::move(layer_data));
 		}
-
-		layer_dict["brush_indices"] = brush_indices;
-
-		worldspawn_layer_dicts.append(layer_dict);
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to get worldspawn layer dictionaries: " + std::string(e.what()));
 	}
 
 	return worldspawn_layer_dicts;
 }
 
-void Qodot::gather_texture_surfaces(const String p_texture_name, const String p_brush_filter_texture, const String p_face_filter_texture) {
-	gather_texture_surfaces_internal(p_texture_name, p_brush_filter_texture, p_face_filter_texture, true);
+void Qodot::gather_texture_surfaces(
+		const std::string &texture_name,
+		const std::string &brush_filter_texture,
+		const std::string &face_filter_texture) {
+	try {
+		gather_texture_surfaces_internal(
+				texture_name,
+				brush_filter_texture,
+				face_filter_texture,
+				true);
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to gather texture surfaces: " + std::string(e.what()));
+	}
 }
 
-void Qodot::gather_worldspawn_layer_surfaces(const String p_texture_name, const String p_brush_filter_texture, const String p_face_filter_texture) {
-	gather_texture_surfaces_internal(p_texture_name, p_brush_filter_texture, p_face_filter_texture, false);
+void Qodot::gather_worldspawn_layer_surfaces(
+		const std::string &texture_name,
+		const std::string &brush_filter_texture,
+		const std::string &face_filter_texture) {
+	try {
+		gather_texture_surfaces_internal(
+				texture_name,
+				brush_filter_texture,
+				face_filter_texture,
+				false);
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to gather worldspawn layer surfaces: " + std::string(e.what()));
+	}
 }
 
-void Qodot::gather_texture_surfaces_internal(const String p_texture_name, const String p_brush_filter_texture, const String p_face_filter_texture, bool p_filter_layers) {
-	CharString texture_name = p_texture_name.utf8();
-	CharString brush_filter_texture = p_brush_filter_texture.utf8();
-	CharString face_filter_texture = p_face_filter_texture.utf8();
+void Qodot::gather_texture_surfaces_internal(
+		const std::string &texture_name,
+		const std::string &brush_filter_texture,
+		const std::string &face_filter_texture,
+		bool filter_layers) {
+	try {
+		surface_gatherer.surface_gatherer_reset_params();
+		surface_gatherer.surface_gatherer_set_split_type(SST_ENTITY);
+		surface_gatherer.surface_gatherer_set_texture_filter(texture_name.c_str());
+		surface_gatherer.surface_gatherer_set_brush_filter_texture(brush_filter_texture.c_str());
+		surface_gatherer.surface_gatherer_set_face_filter_texture(face_filter_texture.c_str());
+		surface_gatherer.surface_gatherer_set_worldspawn_layer_filter(filter_layers);
 
-	surface_gatherer.surface_gatherer_reset_params();
-	surface_gatherer.surface_gatherer_set_split_type(SST_ENTITY);
-	surface_gatherer.surface_gatherer_set_texture_filter(texture_name);
-	surface_gatherer.surface_gatherer_set_brush_filter_texture(brush_filter_texture);
-	surface_gatherer.surface_gatherer_set_face_filter_texture(face_filter_texture);
-	surface_gatherer.surface_gatherer_set_worldspawn_layer_filter(p_filter_layers);
-
-	surface_gatherer.surface_gatherer_run();
+		surface_gatherer.surface_gatherer_run();
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to gather texture surfaces: " + std::string(e.what()));
+	}
 }
 
-void Qodot::gather_entity_convex_collision_surfaces(int64_t p_entity_idx) {
-	gather_convex_collision_surfaces(p_entity_idx, true);
+void Qodot::gather_entity_convex_collision_surfaces(size_t entity_idx) {
+	try {
+		gather_convex_collision_surfaces(entity_idx, true);
+	} catch (const std::exception &e) {
+		throw std::runtime_error("Failed to gather entity convex collision surfaces: " + std::string(e.what()));
+	}
 }
 
-void Qodot::gather_entity_concave_collision_surfaces(int64_t p_entity_idx) {
-	gather_concave_collision_surfaces(p_entity_idx, true);
-}
-
-void Qodot::gather_worldspawn_layer_collision_surfaces(int64_t p_entity_idx) {
-	gather_convex_collision_surfaces(p_entity_idx, false);
-}
-
-void Qodot::gather_convex_collision_surfaces(int64_t p_entity_idx, bool p_filter_layers) {
+void Qodot::gather_convex_collision_surfaces(size_t p_entity_idx, bool p_filter_layers) {
 	surface_gatherer.surface_gatherer_reset_params();
 	surface_gatherer.surface_gatherer_set_split_type(SST_BRUSH);
 	surface_gatherer.surface_gatherer_set_entity_index_filter((int)p_entity_idx);
@@ -222,7 +256,7 @@ void Qodot::gather_convex_collision_surfaces(int64_t p_entity_idx, bool p_filter
 	surface_gatherer.surface_gatherer_run();
 }
 
-void Qodot::gather_concave_collision_surfaces(int64_t p_entity_idx, bool p_filter_layers) {
+void Qodot::gather_concave_collision_surfaces(size_t p_entity_idx, bool p_filter_layers) {
 	surface_gatherer.surface_gatherer_reset_params();
 	surface_gatherer.surface_gatherer_set_split_type(SST_NONE);
 	surface_gatherer.surface_gatherer_set_entity_index_filter((int)p_entity_idx);
@@ -231,95 +265,67 @@ void Qodot::gather_concave_collision_surfaces(int64_t p_entity_idx, bool p_filte
 	surface_gatherer.surface_gatherer_run();
 }
 
-Array Qodot::fetch_surfaces(double p_inverse_scale_factor) {
+std::vector<MeshData> Qodot::fetch_surfaces(double inverse_scale_factor) {
 	const LMSurfaces *surfs = surface_gatherer.surface_gatherer_fetch();
+	std::vector<MeshData> surface_collection;
 
-	Array surf_array;
-	Variant v_nil;
-
-	Vector3 gv3;
-	Vector2 gv2;
+	if (!surfs) {
+		return surface_collection;
+	}
 
 	for (int s = 0; s < surfs->surface_count; ++s) {
 		LMSurface *surf = &surfs->surfaces[s];
 
 		if (surf->vertex_count == 0) {
-			surf_array.append(v_nil);
 			continue;
 		}
 
-		// Create vertex array
+		MeshData mesh_data;
 
-		PoolVector3Array vertices;
-
+		// Convert vertices
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			gv3 = Vector3(surf->vertices[v].vertex.y, surf->vertices[v].vertex.z, surf->vertices[v].vertex.x);
-			gv3 = gv3 / p_inverse_scale_factor;
-			vertices.append(gv3);
+			Vector3 vertex(
+					surf->vertices[v].vertex.y,
+					surf->vertices[v].vertex.z,
+					surf->vertices[v].vertex.x);
+			vertex = vertex / inverse_scale_factor;
+			mesh_data.vertices.push_back(vertex);
 		}
 
-		// Create normal array
-		PoolVector3Array normals;
-
+		// Convert normals
 		for (int v = 0; v < surf->vertex_count; ++v) {
-			gv3 = Vector3(surf->vertices[v].normal.y, surf->vertices[v].normal.z, surf->vertices[v].normal.x);
-			normals.append(gv3);
+			Vector3 normal(
+					surf->vertices[v].normal.y,
+					surf->vertices[v].normal.z,
+					surf->vertices[v].normal.x);
+			mesh_data.normals.push_back(normal);
 		}
 
-		// Create tangent array
-		PoolRealArray tangents;
-
-		for (int v = 0; v < surf->vertex_count; v++) {
-			tangents.append(surf->vertices[v].tangent.y);
-			tangents.append(surf->vertices[v].tangent.z);
-			tangents.append(surf->vertices[v].tangent.x);
-			tangents.append(surf->vertices[v].tangent.w);
+		// Convert tangents
+		for (int v = 0; v < surf->vertex_count; ++v) {
+			Vector4 tangent(
+					surf->vertices[v].tangent.y,
+					surf->vertices[v].tangent.z,
+					surf->vertices[v].tangent.x,
+					surf->vertices[v].tangent.w);
+			mesh_data.tangents.push_back(tangent);
 		}
 
-		// Create UV array
-		PoolVector2Array uvs;
-
-		for (int v = 0; v < surf->vertex_count; v++) {
-			gv2 = Vector2(surf->vertices[v].uv.u, surf->vertices[v].uv.v);
-			uvs.append(gv2);
+		// Convert UVs
+		for (int v = 0; v < surf->vertex_count; ++v) {
+			Vector2 uv(
+					surf->vertices[v].uv.u,
+					surf->vertices[v].uv.v);
+			mesh_data.uvs.push_back(uv);
 		}
 
-		// Create indices array
-
-		PoolIntArray indices;
-
-		for (int i = 0; i < surf->index_count; i++) {
-			indices.append(surf->indices[i]);
+		// Convert indices
+		for (int i = 0; i < surf->index_count; ++i) {
+			mesh_data.indices.push_back(surf->indices[i]);
 		}
 
-		Array brush_array;
-
-		brush_array.resize(Mesh::ArrayType::ARRAY_MAX);
-		brush_array.fill(v_nil);
-
-		brush_array[Mesh::ArrayType::ARRAY_VERTEX] = Variant(vertices);
-		brush_array[Mesh::ArrayType::ARRAY_NORMAL] = Variant(normals);
-		brush_array[Mesh::ArrayType::ARRAY_TANGENT] = Variant(tangents);
-		brush_array[Mesh::ArrayType::ARRAY_TEX_UV] = Variant(uvs);
-		brush_array[Mesh::ArrayType::ARRAY_INDEX] = Variant(indices);
-
-		surf_array.append(brush_array);
+		surface_collection.push_back(mesh_data);
 	}
-	return surf_array;
-}
 
-void Qodot::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("load_map", "map_file"), &Qodot::load_map);
-	ClassDB::bind_method(D_METHOD("get_texture_list"), &Qodot::get_texture_list);
-	ClassDB::bind_method(D_METHOD("set_entity_definitions", "entity_defs"), &Qodot::set_entity_definitions);
-	ClassDB::bind_method(D_METHOD("set_worldspawn_layers", "worldspawn_layers"), &Qodot::set_worldspawn_layers);
-	ClassDB::bind_method(D_METHOD("generate_geometry", "texture_size_dict"), &Qodot::generate_geometry);
-	ClassDB::bind_method(D_METHOD("get_entity_dicts"), &Qodot::get_entity_dicts);
-	ClassDB::bind_method(D_METHOD("get_worldspawn_layer_dicts"), &Qodot::get_worldspawn_layer_dicts);
-	ClassDB::bind_method(D_METHOD("gather_texture_surfaces", "texture_name", "brush_filter_texture", "face_filter_texture"), &Qodot::gather_texture_surfaces);
-	ClassDB::bind_method(D_METHOD("gather_worldspawn_layer_surfaces", "texture_name", "brush_filter_texture", "face_filter_texture"), &Qodot::gather_worldspawn_layer_surfaces);
-	ClassDB::bind_method(D_METHOD("gather_entity_convex_collision_surfaces", "entity_idx"), &Qodot::gather_entity_convex_collision_surfaces);
-	ClassDB::bind_method(D_METHOD("gather_entity_concave_collision_surfaces", "entity_idx"), &Qodot::gather_entity_concave_collision_surfaces);
-	ClassDB::bind_method(D_METHOD("gather_worldspawn_layer_collision_surfaces", "entity_idx"), &Qodot::gather_worldspawn_layer_collision_surfaces);
-	ClassDB::bind_method(D_METHOD("fetch_surfaces", "inverse_scale_factor"), &Qodot::fetch_surfaces);
+	return surface_collection;
 }
