@@ -17,6 +17,7 @@ private:
 	bool show_axes = true;
 	float grid_spacing = 1.0f;
 	int grid_slices = 10;
+	bool mouse_locked = false;
 
 public:
 	void init(int width, int height, const char *title) override;
@@ -31,4 +32,5 @@ public:
 	void set_grid_spacing(float spacing);
 	void draw_mesh_wireframe(const Mesh &mesh);
 	void upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id);
+	void toggle_mouse_lock();
 };

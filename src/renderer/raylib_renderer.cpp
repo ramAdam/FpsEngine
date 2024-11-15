@@ -13,6 +13,10 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
 	camera.fovy = 60.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
+
+	// Initialize mouse locked state
+	DisableCursor();
+	mouse_locked = true;
 }
 
 // Helper to generate mesh hash/ID
@@ -165,5 +169,14 @@ void RaylibRenderer::draw_mesh_wireframe(const Mesh &mesh) {
 		DrawLine3D(v1, v2, WHITE);
 		DrawLine3D(v2, v3, WHITE);
 		DrawLine3D(v3, v1, WHITE);
+	}
+}
+
+void RaylibRenderer::toggle_mouse_lock() {
+	mouse_locked = !mouse_locked;
+	if (mouse_locked) {
+		DisableCursor();
+	} else {
+		EnableCursor();
 	}
 }
