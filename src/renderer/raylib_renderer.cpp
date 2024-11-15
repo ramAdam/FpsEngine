@@ -166,9 +166,9 @@ void RaylibRenderer::draw_mesh_wireframe(const Mesh &mesh) {
 		};
 
 		// Draw triangle edges
-		DrawLine3D(v1, v2, WHITE);
+		DrawLine3D(v1, v2, RED);
 		DrawLine3D(v2, v3, WHITE);
-		DrawLine3D(v3, v1, WHITE);
+		DrawLine3D(v3, v1, GREEN);
 	}
 }
 
