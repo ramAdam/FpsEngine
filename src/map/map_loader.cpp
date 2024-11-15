@@ -78,14 +78,56 @@ bool MapLoader::processMapData(const std::shared_ptr<LMMapData> &mapData) {
 				meshData.indices.push_back(base_idx + 2);
 			}
 
-			// Add completed mesh to collection
+			// Verify mesh before adding to collection
 			if (!meshData.vertices.empty()) {
+				verify_winding_order(mapData, meshData);
+				verify_vertex_positions(meshData);
 				m_meshes.push_back(meshData);
 			}
 		}
 	}
 
 	return !m_meshes.empty();
+}
+
+void MapLoader::verify_winding_order(const std::shared_ptr<LMMapData> &mapData, const MeshData &mesh) {
+	if (!mapData) {
+		TraceLog(LOG_WARNING, "Invalid map data provided");
+		return;
+	}
+
+	for (int entity_idx = 0; entity_idx < mapData->entity_count; entity_idx++) {
+		const LMEntity &entity = mapData->entities[entity_idx];
+		TraceLog(LOG_DEBUG, "Verifying entity %d", entity_idx);
+
+		for (int brush_idx = 0; brush_idx < entity.brush_count; brush_idx++) {
+			const LMBrush &brush = entity.brushes[brush_idx];
+			for (int face_idx = 0; face_idx < brush.face_count; face_idx++) {
+				log_face_indices(face_idx, mesh.indices);
+			}
+		}
+	}
+}
+
+void MapLoader::verify_vertex_positions(const MeshData &mesh) {
+	if (mesh.vertices.empty()) {
+		TraceLog(LOG_WARNING, "Empty mesh provided for verification");
+		return;
+	}
+
+	for (size_t i = 0; i < mesh.vertices.size(); i++) {
+		const auto &vertex = mesh.vertices[i];
+		TraceLog(LOG_DEBUG, "Vertex %zu: (%.2f, %.2f, %.2f)",
+				i, vertex.x, vertex.y, vertex.z);
+	}
+}
+
+void MapLoader::log_face_indices(int face_idx, const std::vector<int> &indices) {
+	TraceLog(LOG_DEBUG, "Face %d indices: %d, %d, %d",
+			face_idx,
+			indices[face_idx * 3],
+			indices[face_idx * 3 + 1],
+			indices[face_idx * 3 + 2]);
 }
 
 // Helper function to calculate normal from three points
@@ -119,4 +161,24 @@ Vector2 MapLoader::calculateValveUV(const LMValveUV &uv, const vec3 &vertex) {
 // Helper function to make code more readable
 Vector2 MapLoader::makeUV(float u, float v) {
 	return Vector2{ u, v };
+}
+
+Vector3 calculateFaceNormal(const Vector3 &v0, const Vector3 &v1, const Vector3 &v2) {
+	Vector3 edge1 = {
+		v1.x - v0.x,
+		v1.y - v0.y,
+		v1.z - v0.z
+	};
+	Vector3 edge2 = {
+		v2.x - v0.x,
+		v2.y - v0.y,
+		v2.z - v0.z
+	};
+	// Cross product
+	Vector3 normal = {
+		edge1.y * edge2.z - edge1.z * edge2.y,
+		edge1.z * edge2.x - edge1.x * edge2.z,
+		edge1.x * edge2.y - edge1.y * edge2.x
+	};
+	return Vector3Normalize(normal);
 }

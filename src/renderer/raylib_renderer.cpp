@@ -46,6 +46,14 @@ void RaylibRenderer::begin_frame() {
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
 	BeginMode3D(camera);
+
+	// Draw debug grid
+	if (show_grid) {
+		DrawGrid(grid_slices, grid_spacing);
+		DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
+		DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
+		DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
+	}
 }
 
 void RaylibRenderer::end_frame() {
@@ -107,17 +115,55 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 	}
 
 	// Render with cached material
-	static const Material defaultMat = LoadMaterialDefault();
-	DrawMesh(mesh_cache.at(mesh_id), defaultMat, MatrixIdentity());
+	if (show_wireframe) {
+		draw_mesh_wireframe(mesh_cache.at(mesh_id));
+	} else {
+		DrawMesh(mesh_cache.at(mesh_id), LoadMaterialDefault(), MatrixIdentity());
+	}
 }
 
 // Optional: Add camera control methods
 void RaylibRenderer::set_camera_speed(float speed) {
 	cameraSpeed = speed;
-	// SetCameraMoveControls(
-	// 		KEY_W, KEY_S, KEY_D, KEY_A, KEY_E, KEY_Q);
 }
 
 void RaylibRenderer::set_camera_mode(int mode) {
 	cameraMode = mode;
+}
+
+// Add control methods
+void RaylibRenderer::toggle_grid() {
+	show_grid = !show_grid;
+}
+void RaylibRenderer::toggle_wireframe() {
+	show_wireframe = !show_wireframe;
+}
+void RaylibRenderer::set_grid_spacing(float spacing) {
+	grid_spacing = spacing;
+}
+
+void RaylibRenderer::draw_mesh_wireframe(const Mesh &mesh) {
+	// Draw lines between vertices based on indices
+	for (int i = 0; i < mesh.triangleCount * 3; i += 3) {
+		Vector3 v1 = {
+			((float *)mesh.vertices)[mesh.indices[i] * 3],
+			((float *)mesh.vertices)[mesh.indices[i] * 3 + 1],
+			((float *)mesh.vertices)[mesh.indices[i] * 3 + 2]
+		};
+		Vector3 v2 = {
+			((float *)mesh.vertices)[mesh.indices[i + 1] * 3],
+			((float *)mesh.vertices)[mesh.indices[i + 1] * 3 + 1],
+			((float *)mesh.vertices)[mesh.indices[i + 1] * 3 + 2]
+		};
+		Vector3 v3 = {
+			((float *)mesh.vertices)[mesh.indices[i + 2] * 3],
+			((float *)mesh.vertices)[mesh.indices[i + 2] * 3 + 1],
+			((float *)mesh.vertices)[mesh.indices[i + 2] * 3 + 2]
+		};
+
+		// Draw triangle edges
+		DrawLine3D(v1, v2, WHITE);
+		DrawLine3D(v2, v3, WHITE);
+		DrawLine3D(v3, v1, WHITE);
+	}
 }

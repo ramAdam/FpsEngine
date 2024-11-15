@@ -29,6 +29,9 @@ private:
 	Vector3 calculateNormal(const LMFacePoints &points);
 	Vector2 calculateValveUV(const LMValveUV &uv, const vec3 &vertex);
 	Vector2 makeUV(float u, float v);
+	void verify_winding_order(const std::shared_ptr<LMMapData> &mapData, const MeshData &mesh);
+	void verify_vertex_positions(const MeshData &mesh);
+	void log_face_indices(int face_idx, const std::vector<int> &indices);
 	std::vector<MeshData> m_meshes;
 	bool m_isLoaded{ false };
 };
