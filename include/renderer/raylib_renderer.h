@@ -9,6 +9,7 @@ private:
 	// Cache for uploaded meshes using a hash or ID
 	std::unordered_map<size_t, Mesh> mesh_cache;
 	size_t generate_mesh_id(const MeshData &mesh);
+	size_t generate_robust_mesh_id(const MeshData &mesh);
 
 public:
 	void init(int width, int height, const char *title) override;
@@ -16,4 +17,5 @@ public:
 	void end_frame() override;
 	void cleanup() override;
 	void render_mesh(const MeshData &mesh) override;
+	void upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id);
 };

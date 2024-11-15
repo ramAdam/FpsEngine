@@ -23,7 +23,7 @@ void printMeshData(const MeshData &mesh, int meshIndex) {
 
 int main(int argc, char *argv[]) {
 	auto renderer = std::make_unique<RaylibRenderer>();
-	renderer->init(800, 600, "Qodot Raylib Renderer");
+	renderer->init(800, 600, "Raylib Renderer for Trench Broom Maps");
 
 	std::string mapPath = "../maps/45_degree.map";
 
