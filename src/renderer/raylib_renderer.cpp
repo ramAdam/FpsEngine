@@ -7,10 +7,11 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	InitWindow(width, height, title);
 	SetTargetFPS(60);
 
-	camera.position = Vector3{ 10.0f, 10.0f, 10.0f };
-	camera.target = Vector3{ 0.0f, 0.0f, 0.0f };
-	camera.up = Vector3{ 0.0f, 1.0f, 0.0f };
-	camera.fovy = 45.0f;
+	// Setup camera
+	camera.position = (Vector3){ 10.0f, 5.0f, 10.0f };
+	camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+	camera.fovy = 60.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 }
 
@@ -41,8 +42,9 @@ size_t RaylibRenderer::generate_robust_mesh_id(const MeshData &mesh) {
 }
 
 void RaylibRenderer::begin_frame() {
+	UpdateCamera(&camera, cameraMode); // Use stored camera mode
 	BeginDrawing();
-	ClearBackground(RAYWHITE);
+	ClearBackground(DARKGRAY);
 	BeginMode3D(camera);
 }
 
@@ -107,4 +109,15 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 	// Render with cached material
 	static const Material defaultMat = LoadMaterialDefault();
 	DrawMesh(mesh_cache.at(mesh_id), defaultMat, MatrixIdentity());
+}
+
+// Optional: Add camera control methods
+void RaylibRenderer::set_camera_speed(float speed) {
+	cameraSpeed = speed;
+	// SetCameraMoveControls(
+	// 		KEY_W, KEY_S, KEY_D, KEY_A, KEY_E, KEY_Q);
+}
+
+void RaylibRenderer::set_camera_mode(int mode) {
+	cameraMode = mode;
 }
