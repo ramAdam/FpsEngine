@@ -1,4 +1,5 @@
 #include "raylib_renderer.h"
+#include <map_loader.h>
 #include <iostream>
 #include <memory>
 
@@ -24,26 +25,26 @@ int main(int argc, char *argv[]) {
 	auto renderer = std::make_unique<RaylibRenderer>();
 	renderer->init(800, 600, "Qodot Raylib Renderer");
 
-	Qodot qodot;
-	qodot.load_map("../maps/45_degree.map");
+	std::string mapPath = "../maps/45_degree.map";
 
-	// Print loaded mesh information
-	const auto &meshes = qodot.fetch_surfaces(1.0);
-	for (size_t i = 0; i < meshes.size(); i++) {
-		printMeshData(meshes[i], i);
+	MapLoader mapLoader;
+	if (!mapLoader.load(mapPath)) {
+		std::cerr << "Failed to load map" << std::endl;
+		return 1;
 	}
 
-	// while (!WindowShouldClose()) {
-	// 	renderer->begin_frame();
+	auto meshes = mapLoader.getMeshes();
 
-	// 	auto meshes = qodot.fetch_surfaces(1.0);
-	// 	for (const auto &mesh : meshes) {
-	// 		renderer->render_mesh(mesh);
-	// 	}
+	while (!WindowShouldClose()) {
+		renderer->begin_frame();
 
-	// 	renderer->end_frame();
-	// }
+		for (const auto &mesh : meshes) {
+			renderer->render_mesh(mesh);
+		}
 
-	// renderer->cleanup();
+		renderer->end_frame();
+	}
+
+	renderer->cleanup();
 	return 0;
 }

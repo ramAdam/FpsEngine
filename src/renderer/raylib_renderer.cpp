@@ -12,6 +12,13 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	camera.projection = CAMERA_PERSPECTIVE;
 }
 
+// Helper to generate mesh hash/ID
+size_t RaylibRenderer::generate_mesh_id(const MeshData &mesh) {
+	// Simple hash combining vertex count and indices
+	return std::hash<size_t>{}(mesh.vertices.size()) ^
+		   std::hash<size_t>{}(mesh.indices.size());
+}
+
 void RaylibRenderer::begin_frame() {
 	BeginDrawing();
 	ClearBackground(RAYWHITE);
@@ -28,20 +35,30 @@ void RaylibRenderer::cleanup() {
 }
 
 void RaylibRenderer::render_mesh(const MeshData &mesh) {
-	// Convert MeshData to raylib Mesh
-	Mesh rlMesh = { 0 };
-	rlMesh.vertexCount = mesh.vertices.size();
-	rlMesh.triangleCount = mesh.indices.size() / 3;
+	if (mesh.vertices.empty())
+		return;
 
-	// Set vertex attributes
-	rlMesh.vertices = (float *)mesh.vertices.data();
-	rlMesh.normals = (float *)mesh.normals.data();
-	rlMesh.texcoords = (float *)mesh.uvs.data();
-	rlMesh.indices = (unsigned short *)mesh.indices.data();
+	size_t mesh_id = generate_mesh_id(mesh);
 
-	// Upload mesh to GPU
-	UploadMesh(&rlMesh, false);
+	// Check if mesh is already uploaded
+	if (mesh_cache.find(mesh_id) == mesh_cache.end()) {
+		// New mesh - upload to GPU
+		Mesh rlMesh = { 0 };
+		rlMesh.vertexCount = static_cast<int>(mesh.vertices.size());
+		rlMesh.triangleCount = static_cast<int>(mesh.indices.size() / 3);
 
-	// Draw mesh
-	DrawMesh(rlMesh, LoadMaterialDefault(), MatrixIdentity());
+		if (!mesh.vertices.empty())
+			rlMesh.vertices = (float *)mesh.vertices.data();
+		if (!mesh.normals.empty())
+			rlMesh.normals = (float *)mesh.normals.data();
+		if (!mesh.uvs.empty())
+			rlMesh.texcoords = (float *)mesh.uvs.data();
+
+		UploadMesh(&rlMesh, false);
+		mesh_cache[mesh_id] = rlMesh;
+	}
+
+	// Cache default material
+	static Material defaultMat = LoadMaterialDefault();
+	DrawMesh(mesh_cache[mesh_id], defaultMat, MatrixIdentity());
 }

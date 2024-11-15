@@ -2,6 +2,7 @@
 #define QODOT_H
 
 #include "geo_generator.h"
+#include "map_loader.h"
 #include "map_parser.h"
 #include "raylib.h"
 #include "surface_gatherer.h"
@@ -29,13 +30,13 @@ struct TextureSize {
 // Required structs
 // Remove Vector2, Vector3, Vector4 structs as we'll use raylib's
 
-struct MeshData {
-	std::vector<Vector3> vertices;
-	std::vector<Vector3> normals;
-	std::vector<Vector4> tangents;
-	std::vector<Vector2> uvs;
-	std::vector<int> indices;
-};
+// struct MeshData {
+// 	std::vector<Vector3> vertices;
+// 	std::vector<Vector3> normals;
+// 	std::vector<Vector4> tangents;
+// 	std::vector<Vector2> uvs;
+// 	std::vector<int> indices;
+// };
 
 struct EntityData {
 	int brush_count;
