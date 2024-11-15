@@ -6,18 +6,20 @@
 class RaylibRenderer : public RendererInterface {
 private:
 	Camera3D camera;
-	int cameraMode = CAMERA_FIRST_PERSON; // Add camera mode
+	int cameraMode = CAMERA_FREE; // Add camera mode
 	float cameraSpeed = 0.5f;
 	// Cache for uploaded meshes using a hash or ID
 	std::unordered_map<size_t, Mesh> mesh_cache;
 	size_t generate_mesh_id(const MeshData &mesh);
 	size_t generate_robust_mesh_id(const MeshData &mesh);
 	bool show_grid = true;
-	bool show_wireframe = true;
+	bool show_wireframe = false;
 	bool show_axes = true;
 	float grid_spacing = 1.0f;
 	int grid_slices = 10;
 	bool mouse_locked = false;
+	Model model; // Add Model member for OBJ
+	bool model_loaded;
 
 public:
 	void init(int width, int height, const char *title) override;
@@ -33,4 +35,5 @@ public:
 	void draw_mesh_wireframe(const Mesh &mesh);
 	void upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id);
 	void toggle_mouse_lock();
+	bool load_obj(const char *filename);
 };

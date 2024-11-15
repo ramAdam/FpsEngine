@@ -2,6 +2,7 @@
 #include "raymath.h"
 #include <cstring> // For std::memcpy
 #include <functional> // For std::hash
+#include <iostream>
 
 void RaylibRenderer::init(int width, int height, const char *title) {
 	InitWindow(width, height, title);
@@ -66,6 +67,9 @@ void RaylibRenderer::end_frame() {
 }
 
 void RaylibRenderer::cleanup() {
+	if (model_loaded) {
+		UnloadModel(model);
+	}
 	CloseWindow();
 }
 
@@ -104,26 +108,34 @@ void RaylibRenderer::upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id) {
 }
 
 void RaylibRenderer::render_mesh(const MeshData &mesh) {
-	// Validate input
-	if (mesh.vertices.empty() || mesh.indices.empty()) {
-		TraceLog(LOG_WARNING, "Attempted to render empty mesh");
-		return;
+	if (model_loaded) {
+		// if (show_wireframe) {
+		// 	DrawModelWires(model, Vector3Zero(), 1.0f, WHITE);
+		// } else {
+		DrawModel(model, Vector3Zero(), 1.0f, WHITE);
+		// }
+	}
+}
+
+bool RaylibRenderer::load_obj(const char *filename) {
+	if (!FileExists(filename)) {
+		std::cerr << "Error: Could not find OBJ file: " << filename << std::endl;
+		model_loaded = false;
+		return false;
 	}
 
-	// Generate more robust mesh ID
-	size_t mesh_id = generate_robust_mesh_id(mesh);
+	model = LoadModel(filename);
 
-	// Upload if not cached
-	if (auto it = mesh_cache.find(mesh_id); it == mesh_cache.end()) {
-		upload_mesh_to_gpu(mesh, mesh_id);
+	// Check if model loaded successfully
+	if (model.meshCount == 0) {
+		std::cerr << "Error: Failed to load OBJ model: " << filename << std::endl;
+		model_loaded = false;
+		return false;
 	}
 
-	// Render with cached material
-	if (show_wireframe) {
-		draw_mesh_wireframe(mesh_cache.at(mesh_id));
-	} else {
-		DrawMesh(mesh_cache.at(mesh_id), LoadMaterialDefault(), MatrixIdentity());
-	}
+	model_loaded = true;
+	std::cout << "Successfully loaded model: " << filename << std::endl;
+	return true;
 }
 
 // Optional: Add camera control methods
@@ -147,28 +159,38 @@ void RaylibRenderer::set_grid_spacing(float spacing) {
 }
 
 void RaylibRenderer::draw_mesh_wireframe(const Mesh &mesh) {
-	// Draw lines between vertices based on indices
+	if (!mesh.vertices || !mesh.indices)
+		return;
+
+	const float *vertices = static_cast<const float *>(mesh.vertices);
+	const unsigned short *indices = static_cast<const unsigned short *>(mesh.indices);
+
+	// Debug output for triangles
 	for (int i = 0; i < mesh.triangleCount * 3; i += 3) {
 		Vector3 v1 = {
-			((float *)mesh.vertices)[mesh.indices[i] * 3],
-			((float *)mesh.vertices)[mesh.indices[i] * 3 + 1],
-			((float *)mesh.vertices)[mesh.indices[i] * 3 + 2]
+			vertices[indices[i] * 3],
+			vertices[indices[i] * 3 + 1],
+			vertices[indices[i] * 3 + 2]
 		};
 		Vector3 v2 = {
-			((float *)mesh.vertices)[mesh.indices[i + 1] * 3],
-			((float *)mesh.vertices)[mesh.indices[i + 1] * 3 + 1],
-			((float *)mesh.vertices)[mesh.indices[i + 1] * 3 + 2]
+			vertices[indices[i + 1] * 3],
+			vertices[indices[i + 1] * 3 + 1],
+			vertices[indices[i + 1] * 3 + 2]
 		};
 		Vector3 v3 = {
-			((float *)mesh.vertices)[mesh.indices[i + 2] * 3],
-			((float *)mesh.vertices)[mesh.indices[i + 2] * 3 + 1],
-			((float *)mesh.vertices)[mesh.indices[i + 2] * 3 + 2]
+			vertices[indices[i + 2] * 3],
+			vertices[indices[i + 2] * 3 + 1],
+			vertices[indices[i + 2] * 3 + 2]
 		};
 
-		// Draw triangle edges
-		DrawLine3D(v1, v2, RED);
+		// Print triangle vertices for debugging
+		TraceLog(LOG_DEBUG, "Triangle %d: (%f,%f,%f) (%f,%f,%f) (%f,%f,%f)",
+				i / 3, v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
+
+		// Draw all edges in WHITE for better visibility
+		DrawLine3D(v1, v2, WHITE);
 		DrawLine3D(v2, v3, WHITE);
-		DrawLine3D(v3, v1, GREEN);
+		DrawLine3D(v3, v1, WHITE);
 	}
 }
 

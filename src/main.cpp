@@ -25,25 +25,31 @@ int main(int argc, char *argv[]) {
 	auto renderer = std::make_unique<RaylibRenderer>();
 	renderer->init(800, 600, "Raylib Renderer for Trench Broom Maps");
 	renderer->set_camera_speed(0.5f);
+	// renderer->toggle_wireframe();
 
-	std::string mapPath = "../maps/one_block.map";
+	std::string mapPath = "../maps/block.obj";
 
-	MapLoader mapLoader;
-	if (!mapLoader.load(mapPath)) {
-		std::cerr << "Failed to load map" << std::endl;
-		return 1;
+	if (renderer->load_obj(mapPath.c_str())) {
+		std::cout << "Loaded model" << std::endl;
 	}
 
-	printMeshData(mapLoader.getMeshes()[0], 0);
+	// MapLoader mapLoader;
+	// if (!mapLoader.load(mapPath)) {
+	// 	std::cerr << "Failed to load map" << std::endl;
+	// 	return 1;
+	// }
 
-	auto meshes = mapLoader.getMeshes();
+	// printMeshData(mapLoader.getMeshes()[0], 0);
+
+	// auto meshes = mapLoader.getMeshes();
 
 	while (!WindowShouldClose()) {
 		renderer->begin_frame();
 
-		for (const auto &mesh : meshes) {
-			renderer->render_mesh(mesh);
-		}
+		renderer->render_mesh({});
+		// for (const auto &mesh : meshes) {
+		// 	renderer->render_mesh(mesh);
+		// }
 
 		renderer->end_frame();
 	}
