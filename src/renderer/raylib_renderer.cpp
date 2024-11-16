@@ -8,14 +8,13 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	InitWindow(width, height, title);
 	SetTargetFPS(60);
 
-	// Setup camera for better model viewing
-	camera.position = (Vector3){ 5.0f, 5.0f, 5.0f };
+	// Initialize default camera
+	camera.position = (Vector3){ 0.0f, 2.0f, 10.0f };
+	set_player_start(camera.position);
 	camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-	camera.fovy = 45.0f;
+	camera.fovy = 60.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
-
-	// Initialize mouse locked state
 	DisableCursor();
 	mouse_locked = true;
 }
@@ -46,7 +45,19 @@ size_t RaylibRenderer::generate_robust_mesh_id(const MeshData &mesh) {
 	return hash;
 }
 
+void RaylibRenderer::handle_camera_input() {
+	if (IsKeyPressed(KEY_ONE)) {
+		cameraMode = CAMERA_FREE;
+		std::cout << "Camera Mode: FREE" << std::endl;
+	} else if (IsKeyPressed(KEY_TWO)) {
+		cameraMode = CAMERA_FIRST_PERSON;
+		camera.position = player_start;
+		std::cout << "Camera Mode: FIRST PERSON" << std::endl;
+	}
+}
+
 void RaylibRenderer::begin_frame() {
+	handle_camera_input();
 	UpdateCamera(&camera, cameraMode); // Use stored camera mode
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
@@ -148,6 +159,10 @@ bool RaylibRenderer::load_obj(const char *filename) {
 	}
 
 	model_loaded = true;
+
+	// Position camera after loading model
+	// position_camera_on_mesh();
+
 	return true;
 }
 
@@ -214,4 +229,9 @@ void RaylibRenderer::toggle_mouse_lock() {
 	} else {
 		EnableCursor();
 	}
+}
+
+void RaylibRenderer::set_player_start(const Vector3 &position) {
+	player_start = position;
+	camera.position = player_start;
 }
