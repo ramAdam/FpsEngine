@@ -8,11 +8,11 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	InitWindow(width, height, title);
 	SetTargetFPS(60);
 
-	// Setup camera
-	camera.position = (Vector3){ 10.0f, 5.0f, 10.0f };
+	// Setup camera for better model viewing
+	camera.position = (Vector3){ 5.0f, 5.0f, 5.0f };
 	camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-	camera.fovy = 60.0f;
+	camera.fovy = 45.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 
 	// Initialize mouse locked state
@@ -109,11 +109,22 @@ void RaylibRenderer::upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id) {
 
 void RaylibRenderer::render_mesh(const MeshData &mesh) {
 	if (model_loaded) {
-		// if (show_wireframe) {
-		// 	DrawModelWires(model, Vector3Zero(), 1.0f, WHITE);
-		// } else {
-		DrawModel(model, Vector3Zero(), 1.0f, WHITE);
-		// }
+		// Draw reference grid and axes
+		// DrawGrid(10, 1.0f);
+		DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X
+		DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y
+		DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z
+
+		// Adjust scale for better visibility
+		Vector3 position = { 0.0f, 0.0f, 0.0f };
+		float scale = 0.5f; // Scale down the model
+
+		// Draw model
+		DrawModel(model, position, scale, WHITE);
+
+		if (show_wireframe) {
+			DrawModelWires(model, position, scale, RED);
+		}
 	}
 }
 
@@ -126,15 +137,17 @@ bool RaylibRenderer::load_obj(const char *filename) {
 
 	model = LoadModel(filename);
 
-	// Check if model loaded successfully
-	if (model.meshCount == 0) {
-		std::cerr << "Error: Failed to load OBJ model: " << filename << std::endl;
-		model_loaded = false;
-		return false;
+	// Debug output
+	std::cout << "Model loaded with:" << std::endl;
+	std::cout << "Mesh count: " << model.meshCount << std::endl;
+	std::cout << "Material count: " << model.materialCount << std::endl;
+	std::cout << "Bone count: " << model.boneCount << std::endl;
+
+	if (model.meshCount > 0) {
+		std::cout << "First mesh vertices: " << model.meshes[0].vertexCount << std::endl;
 	}
 
 	model_loaded = true;
-	std::cout << "Successfully loaded model: " << filename << std::endl;
 	return true;
 }
 
