@@ -100,4 +100,5 @@ public:
 	bool check_collision(const Vector3 &position, float radius);
 	BSPPlane choose_split_plane(const std::vector<Polygon> &polygons);
 	std::vector<Vector3> find_path(const Vector3 &start, const Vector3 &end);
+	float dot_product(const Vector3 &a, const Vector3 &b);
 };

@@ -46,6 +46,19 @@ size_t RaylibRenderer::generate_robust_mesh_id(const MeshData &mesh) {
 }
 
 void RaylibRenderer::handle_camera_input() {
+	Vector3 newPos = camera.position;
+
+	// Get movement input
+	// if (IsKeyDown(KEY_W)) {
+	// 	Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+	// 	Vector3 movement = Vector3Scale(forward, cameraSpeed);
+	// 	newPos = Vector3Add(camera.position, movement);
+	// }
+	// Similar for other movement keys...
+
+	// Check and update position
+	// camera.position = try_move(camera.position, newPos);
+
 	if (IsKeyPressed(KEY_ONE)) {
 		cameraMode = CAMERA_FREE;
 		std::cout << "Camera Mode: FREE" << std::endl;
@@ -130,8 +143,19 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 		Vector3 position = { 0.0f, 0.0f, 0.0f };
 		float scale = 0.5f; // Scale down the model
 
+		// std::cout << "Model position: (" << position.x << "," << position.y << "," << position.z << ")" << std::endl;
 		// Draw model
 		DrawModel(model, position, scale, WHITE);
+
+		// if (model.meshCount > 0) {
+		// 	const Mesh &mesh = model.meshes[0];
+		// 	std::cout << "Mesh data after drawing:" << std::endl;
+		// 	std::cout << "Vertex count: " << mesh.vertexCount << std::endl;
+		// 	std::cout << "Triangle count: " << mesh.triangleCount << std::endl;
+		// 	std::cout << "Vertices ptr: " << (mesh.vertices ? "valid" : "null") << std::endl;
+		// 	std::cout << "Indices ptr: " << (mesh.indices ? "valid" : "null") << std::endl;
+		// 	std::cout << "Normals ptr: " << (mesh.normals ? "valid" : "null") << std::endl;
+		// }
 
 		if (show_wireframe) {
 			DrawModelWires(model, position, scale, RED);
@@ -142,31 +166,24 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 bool RaylibRenderer::load_obj(const char *filename) {
 	if (!FileExists(filename)) {
 		std::cerr << "Error: Could not find OBJ file: " << filename << std::endl;
-		model_loaded = false;
 		return false;
 	}
 
-	model = LoadModel(filename);
+	try {
+		model = LoadModel(filename);
 
-	// Debug output
-	std::cout << "Model loaded with:" << std::endl;
-	std::cout << "Mesh count: " << model.meshCount << std::endl;
-	std::cout << "Material count: " << model.materialCount << std::endl;
-	std::cout << "Bone count: " << model.boneCount << std::endl;
+		// Build BSP tree with validated mesh
+		bsp_tree = std::make_unique<BSPTree>();
+		bsp_tree->build(model.meshes[0]);
 
-	if (model.meshCount > 0) {
-		std::cout << "First mesh vertices: " << model.meshes[0].vertexCount << std::endl;
+		model_loaded = true;
+		return true;
+
+	} catch (const std::exception &e) {
+		std::cerr << "Error loading model: " << e.what() << std::endl;
+		model_loaded = false;
+		return false;
 	}
-
-	bsp_tree = std::make_unique<BSPTree>();
-	bsp_tree->build(model.meshes[0]);
-
-	model_loaded = true;
-
-	// Position camera after loading model
-	// position_camera_on_mesh();
-
-	return true;
 }
 
 // Optional: Add camera control methods
@@ -241,4 +258,12 @@ void RaylibRenderer::set_player_start(const Vector3 &position) {
 
 bool RaylibRenderer::check_collision(const Vector3 &position) {
 	return bsp_tree->check_collision(position, player_radius);
+}
+
+Vector3 RaylibRenderer::try_move(const Vector3 &current, const Vector3 &target) {
+	// Check if new position would collide
+	if (bsp_tree && bsp_tree->check_collision(target, player_radius)) {
+		return current; // Keep old position if collision detected
+	}
+	return target; // Allow movement if no collision
 }

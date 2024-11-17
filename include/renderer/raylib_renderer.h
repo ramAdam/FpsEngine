@@ -25,6 +25,8 @@ private:
 	Model model; // Add Model member for OBJ
 	bool model_loaded;
 	void handle_camera_input(); // Add this method declaration
+	float player_radius = 1.0f; // Collision sphere radius
+	Vector3 try_move(const Vector3 &current, const Vector3 &target);
 
 public:
 	void init(int width, int height, const char *title) override;
@@ -43,4 +45,5 @@ public:
 	bool load_obj(const char *filename);
 	void set_player_start(const Vector3 &position); // New method to set player start position
 	bool check_collision(const Vector3 &position);
+	void set_player_radius(float radius) { player_radius = radius; }
 };
