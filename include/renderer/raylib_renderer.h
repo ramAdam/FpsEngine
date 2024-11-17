@@ -1,10 +1,13 @@
 // include/renderer/raylib_renderer.h
 #pragma once
+
 #include "raylib.h"
 #include "renderer_interface.h"
+#include <include/bsp/bsp.h>
 
 class RaylibRenderer : public RendererInterface {
 private:
+	std::unique_ptr<BSPTree> bsp_tree;
 	Camera3D camera;
 	Vector3 player_start;
 	int cameraMode = CAMERA_FIRST_PERSON; // Add camera mode
@@ -39,4 +42,5 @@ public:
 	void toggle_mouse_lock();
 	bool load_obj(const char *filename);
 	void set_player_start(const Vector3 &position); // New method to set player start position
+	bool check_collision(const Vector3 &position);
 };

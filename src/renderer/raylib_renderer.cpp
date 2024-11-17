@@ -158,6 +158,9 @@ bool RaylibRenderer::load_obj(const char *filename) {
 		std::cout << "First mesh vertices: " << model.meshes[0].vertexCount << std::endl;
 	}
 
+	bsp_tree = std::make_unique<BSPTree>();
+	bsp_tree->build(model.meshes[0]);
+
 	model_loaded = true;
 
 	// Position camera after loading model
@@ -234,4 +237,8 @@ void RaylibRenderer::toggle_mouse_lock() {
 void RaylibRenderer::set_player_start(const Vector3 &position) {
 	player_start = position;
 	camera.position = player_start;
+}
+
+bool RaylibRenderer::check_collision(const Vector3 &position) {
+	return bsp_tree->check_collision(position, player_radius);
 }
