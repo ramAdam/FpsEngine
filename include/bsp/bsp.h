@@ -95,7 +95,7 @@ public:
 	void build(const Mesh &mesh);
 	bool trace_ray(const Vector3 &start, const Vector3 &direction, float &hit_distance);
 	bool trace_node(BSPNode *node, const Vector3 &start, const Vector3 &direction, float &hit_distance);
-	std::unique_ptr<BSPNode> build_node(const std::vector<Polygon> &node_polys);
+	std::unique_ptr<BSPNode> build_node(const std::vector<Polygon> &node_polys, int depth);
 	bool check_collision_node(BSPNode *node, const Vector3 &position, float radius);
 	bool check_collision(const Vector3 &position, float radius);
 	BSPPlane choose_split_plane(const std::vector<Polygon> &polygons);

@@ -1,55 +1,29 @@
 #include "bsp.h"
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <utility>
 
 void BSPTree::build(const Mesh &mesh) {
-	// Only check vertices and normals
 	if (!mesh.vertices || !mesh.normals) {
 		throw std::runtime_error("Invalid mesh data: missing vertices or normals");
 	}
 
-	// Process vertices directly (3 vertices per triangle)
 	for (int i = 0; i < mesh.vertexCount; i += 3) {
 		Polygon poly;
-
-		// Direct vertex access - no indices needed
 		poly.vertices = {
-			Vector3{
-					mesh.vertices[i * 3],
-					mesh.vertices[i * 3 + 1],
-					mesh.vertices[i * 3 + 2] },
-			Vector3{
-					mesh.vertices[(i + 1) * 3],
-					mesh.vertices[(i + 1) * 3 + 1],
-					mesh.vertices[(i + 1) * 3 + 2] },
-			Vector3{
-					mesh.vertices[(i + 2) * 3],
-					mesh.vertices[(i + 2) * 3 + 1],
-					mesh.vertices[(i + 2) * 3 + 2] }
+			Vector3{ mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2] },
+			Vector3{ mesh.vertices[(i + 1) * 3], mesh.vertices[(i + 1) * 3 + 1], mesh.vertices[(i + 2) * 3 + 2] },
+			Vector3{ mesh.vertices[(i + 2) * 3], mesh.vertices[(i + 2) * 3 + 1], mesh.vertices[(i + 2) * 3 + 2] }
 		};
-
-		// Get normal from first vertex of triangle
-		poly.normal = Vector3{
-			mesh.normals[i * 3],
-			mesh.normals[i * 3 + 1],
-			mesh.normals[i * 3 + 2]
-		};
-
+		poly.normal = Vector3{ mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2] };
 		polygons.push_back(poly);
 	}
 
-	// print all polygons
-	for (const auto &poly : polygons) {
-		std::cout << "Polygon: " << std::endl;
-		for (const auto &vertex : poly.vertices) {
-			std::cout << "Vertex: " << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
-		}
-		std::cout << "Normal: " << poly.normal.x << ", " << poly.normal.y << ", " << poly.normal.z << std::endl;
-	}
+	std::cout << "Total number of polygons: " << polygons.size() << std::endl;
 
-	// root = build_node(polygons);
+	root = build_node(polygons, 0);
 }
 
 bool BSPTree::trace_ray(const Vector3 &start, const Vector3 &direction, float &hit_distance) {
@@ -118,65 +92,74 @@ bool BSPTree::check_collision_node(BSPNode *node, const Vector3 &position, float
 			position, radius);
 }
 
-std::unique_ptr<BSPNode> BSPTree::build_node(const std::vector<Polygon> &node_polys) {
-	if (node_polys.empty())
+std::unique_ptr<BSPNode> BSPTree::build_node(const std::vector<Polygon> &node_polys, int depth) {
+	const int MAX_DEPTH = 20;
+	const int MIN_POLYS = 1; // Base case for small number of polygons
+
+	if (node_polys.empty() || depth >= MAX_DEPTH || node_polys.size() <= MIN_POLYS) {
 		return nullptr;
+	}
 
 	auto node = std::make_unique<BSPNode>();
-
-	// Choose best splitting plane
 	node->plane = choose_split_plane(node_polys);
 
 	std::vector<Polygon> front_polys, back_polys;
-
-	// Store indices of polygons that lie on the splitting plane
-	for (size_t i = 0; i < node_polys.size(); i++) {
-		const auto &poly = node_polys[i];
-		const auto &[front_opt, back_opt] = poly.split(node->plane);
-
-		// Use optional values
+	for (const auto &poly : node_polys) {
+		auto [front_opt, back_opt] = poly.split(node->plane);
 		if (!front_opt && !back_opt) {
-			// Polygon lies on plane
 			node->polygons.push_back(polygons.size());
 			polygons.push_back(poly);
 		} else {
-			if (front_opt) {
+			if (front_opt)
 				front_polys.push_back(*front_opt);
-			}
-			if (back_opt) {
+			if (back_opt)
 				back_polys.push_back(*back_opt);
-			}
 		}
 	}
 
-	// Recursively build child nodes
-	node->front = build_node(front_polys);
-	node->back = build_node(back_polys);
+	std::cout << "Depth: " << depth << ", Front polys: " << front_polys.size() << ", Back polys: " << back_polys.size() << std::endl;
+
+	// Base case to stop recursion if no meaningful split
+	if (front_polys.size() == node_polys.size() || back_polys.size() == node_polys.size()) {
+		std::cout << "Base case reached" << std::endl;
+		return node;
+	}
+
+	node->front = build_node(front_polys, depth + 1);
+	node->back = build_node(back_polys, depth + 1);
 
 	return node;
 }
 
 BSPPlane BSPTree::choose_split_plane(const std::vector<Polygon> &polygons) {
-	if (polygons.empty()) {
-		return BSPPlane(); // Return default plane
-	}
+	if (polygons.empty())
+		return BSPPlane();
 
-	// Simple heuristic: choose polygon that splits fewest others
 	BSPPlane best_plane;
 	int best_score = std::numeric_limits<int>::max();
 
 	for (const auto &poly : polygons) {
 		BSPPlane plane = poly.get_plane();
 		int score = 0;
+		int front_count = 0;
+		int back_count = 0;
 
 		for (const auto &other : polygons) {
 			auto [front, back] = other.split(plane);
 			if (front && back)
-				score++; // Count splits
+				score++;
+			if (front)
+				front_count++;
+			if (back)
+				back_count++;
 		}
 
-		if (score < best_score) {
-			best_score = score;
+		// Balance score: splits + abs(front - back)
+		int balance_score = std::abs(front_count - back_count);
+		int total_score = score + balance_score;
+
+		if (total_score < best_score) {
+			best_score = total_score;
 			best_plane = plane;
 		}
 	}

@@ -48,17 +48,6 @@ size_t RaylibRenderer::generate_robust_mesh_id(const MeshData &mesh) {
 void RaylibRenderer::handle_camera_input() {
 	Vector3 newPos = camera.position;
 
-	// Get movement input
-	// if (IsKeyDown(KEY_W)) {
-	// 	Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-	// 	Vector3 movement = Vector3Scale(forward, cameraSpeed);
-	// 	newPos = Vector3Add(camera.position, movement);
-	// }
-	// Similar for other movement keys...
-
-	// Check and update position
-	// camera.position = try_move(camera.position, newPos);
-
 	if (IsKeyPressed(KEY_ONE)) {
 		cameraMode = CAMERA_FREE;
 		std::cout << "Camera Mode: FREE" << std::endl;
@@ -143,19 +132,7 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 		Vector3 position = { 0.0f, 0.0f, 0.0f };
 		float scale = 0.5f; // Scale down the model
 
-		// std::cout << "Model position: (" << position.x << "," << position.y << "," << position.z << ")" << std::endl;
-		// Draw model
 		DrawModel(model, position, scale, WHITE);
-
-		// if (model.meshCount > 0) {
-		// 	const Mesh &mesh = model.meshes[0];
-		// 	std::cout << "Mesh data after drawing:" << std::endl;
-		// 	std::cout << "Vertex count: " << mesh.vertexCount << std::endl;
-		// 	std::cout << "Triangle count: " << mesh.triangleCount << std::endl;
-		// 	std::cout << "Vertices ptr: " << (mesh.vertices ? "valid" : "null") << std::endl;
-		// 	std::cout << "Indices ptr: " << (mesh.indices ? "valid" : "null") << std::endl;
-		// 	std::cout << "Normals ptr: " << (mesh.normals ? "valid" : "null") << std::endl;
-		// }
 
 		if (show_wireframe) {
 			DrawModelWires(model, position, scale, RED);
