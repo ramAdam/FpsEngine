@@ -14,15 +14,19 @@ void BSPTree::build(const Mesh &mesh) {
 		Polygon poly;
 		poly.vertices = {
 			Vector3{ mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2] },
-			Vector3{ mesh.vertices[(i + 1) * 3], mesh.vertices[(i + 1) * 3 + 1], mesh.vertices[(i + 2) * 3 + 2] },
+			Vector3{ mesh.vertices[(i + 1) * 3], mesh.vertices[(i + 1) * 3 + 1], mesh.vertices[(i + 1) * 3 + 2] },
 			Vector3{ mesh.vertices[(i + 2) * 3], mesh.vertices[(i + 2) * 3 + 1], mesh.vertices[(i + 2) * 3 + 2] }
 		};
+
+		// Use the normal of the first vertex for the entire polygon (assuming flat shading)
 		poly.normal = Vector3{ mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2] };
+
 		polygons.push_back(poly);
 	}
 
 	std::cout << "Total number of polygons: " << polygons.size() << std::endl;
 
+	// Uncomment and implement if you want to build the BSP tree
 	// root = build_node(polygons, 0);
 }
 

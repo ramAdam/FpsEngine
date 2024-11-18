@@ -33,16 +33,6 @@ int main(int argc, char *argv[]) {
 		std::cout << "Loaded model" << std::endl;
 	}
 
-	// MapLoader mapLoader;
-	// if (!mapLoader.load(mapPath)) {
-	// 	std::cerr << "Failed to load map" << std::endl;
-	// 	return 1;
-	// }
-
-	// printMeshData(mapLoader.getMeshes()[0], 0);
-
-	// auto meshes = mapLoader.getMeshes();
-
 	while (!WindowShouldClose()) {
 		renderer->begin_frame();
 
