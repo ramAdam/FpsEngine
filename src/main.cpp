@@ -47,9 +47,6 @@ int main(int argc, char *argv[]) {
 		renderer->begin_frame();
 
 		renderer->render_mesh({});
-		// for (const auto &mesh : meshes) {
-		// 	renderer->render_mesh(mesh);
-		// }
 
 		renderer->end_frame();
 	}

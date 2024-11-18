@@ -8,25 +8,24 @@
 class RaylibRenderer : public RendererInterface {
 private:
 	std::unique_ptr<BSPTree> bsp_tree;
+	Model model;
 	Camera3D camera;
 	Vector3 player_start;
-	int cameraMode = CAMERA_FIRST_PERSON; // Add camera mode
+	int cameraMode = CAMERA_FIRST_PERSON;
 	float cameraSpeed = 0.5f;
-	// Cache for uploaded meshes using a hash or ID
-	std::unordered_map<size_t, Mesh> mesh_cache;
-	size_t generate_mesh_id(const MeshData &mesh);
-	size_t generate_robust_mesh_id(const MeshData &mesh);
 	bool show_grid = true;
 	bool show_wireframe = false;
 	bool show_axes = true;
 	float grid_spacing = 1.0f;
 	int grid_slices = 10;
 	bool mouse_locked = false;
-	Model model; // Add Model member for OBJ
 	bool model_loaded;
 	void handle_camera_input(); // Add this method declaration
 	float player_radius = 1.0f; // Collision sphere radius
-	Vector3 try_move(const Vector3 &current, const Vector3 &target);
+
+	// Add this method declaration
+	void draw_polygon(const Polygon &poly, Color color);
+	void draw_polygons(const std::vector<Polygon> &polys, Color color);
 
 public:
 	void init(int width, int height, const char *title) override;
@@ -34,16 +33,15 @@ public:
 	void end_frame() override;
 	void cleanup() override;
 	void render_mesh(const MeshData &mesh) override;
-	void set_camera_speed(float speed);
-	void set_camera_mode(int mode); // New method to change camera mode
-	void toggle_grid();
-	void toggle_wireframe();
-	void set_grid_spacing(float spacing);
-	void draw_mesh_wireframe(const Mesh &mesh);
-	void upload_mesh_to_gpu(const MeshData &mesh, size_t mesh_id);
+	void set_camera_speed(float speed) { cameraSpeed = speed; };
+	void set_camera_mode(int mode) { cameraMode = mode; };
+	void toggle_grid() { show_grid = !show_grid; }
+	void toggle_wireframe() { show_wireframe = !show_wireframe; }
+	void set_grid_spacing(float spacing) { grid_spacing = spacing; }
+
 	void toggle_mouse_lock();
 	bool load_obj(const char *filename);
 	void set_player_start(const Vector3 &position); // New method to set player start position
-	bool check_collision(const Vector3 &position);
+
 	void set_player_radius(float radius) { player_radius = radius; }
 };
