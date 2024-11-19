@@ -12,6 +12,8 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include/map
     ${CMAKE_CURRENT_SOURCE_DIR}/include/renderer
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bsp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/physics
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/game
 )
 
 # Collect source files
@@ -22,10 +24,18 @@ file(GLOB_RECURSE SOURCES
 
 # Add raylib
 find_package(raylib REQUIRED)
+find_package(Bullet REQUIRED)
 
 # Create the target BEFORE linking
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
 
 # Now we can link libraries
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE raylib)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE 
+    raylib
+    ${BULLET_LIBRARIES}
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    ${BULLET_INCLUDE_DIRS}
+)
 

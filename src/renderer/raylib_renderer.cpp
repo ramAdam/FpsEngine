@@ -9,7 +9,7 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	SetTargetFPS(60);
 
 	// Initialize default camera
-	camera.position = (Vector3){ 0.0f, 2.0f, 10.0f };
+	camera.position = (Vector3){ 0.0f, 20.0f, 10.0f };
 	set_player_start(camera.position);
 	camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -17,35 +17,42 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	camera.projection = CAMERA_PERSPECTIVE;
 	DisableCursor();
 	mouse_locked = true;
+
+	physics.init();
+	player.init(physics.getDynamicsWorld(), camera.position);
+	player.attachCamera(&camera);
 }
 
 void RaylibRenderer::handle_camera_input() {
-	Vector3 newPos = camera.position;
-
 	if (IsKeyPressed(KEY_ONE)) {
 		cameraMode = CAMERA_FREE;
 		std::cout << "Camera Mode: FREE" << std::endl;
 	} else if (IsKeyPressed(KEY_TWO)) {
 		cameraMode = CAMERA_FIRST_PERSON;
-		camera.position = player_start;
+		player.setPosition(player_start);
 		std::cout << "Camera Mode: FIRST PERSON" << std::endl;
 	}
 }
 
 void RaylibRenderer::begin_frame() {
 	handle_camera_input();
-	UpdateCamera(&camera, cameraMode); // Use stored camera mode
+
+	// Update physics
+	physics.update(GetFrameTime());
+	player.update(GetFrameTime());
+
+	UpdateCamera(&camera, cameraMode);
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
 	BeginMode3D(camera);
 
 	// Draw debug grid
-	if (show_grid) {
-		DrawGrid(grid_slices, grid_spacing);
-		DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
-		DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
-		DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
-	}
+	// if (show_grid) {
+	// 	DrawGrid(grid_slices, grid_spacing);
+	// 	DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
+	// 	DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
+	// 	DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
+	// }
 }
 
 void RaylibRenderer::end_frame() {
@@ -54,6 +61,8 @@ void RaylibRenderer::end_frame() {
 }
 
 void RaylibRenderer::cleanup() {
+	player.cleanup();
+	physics.cleanup();
 	if (model_loaded) {
 		UnloadModel(model);
 	}
@@ -74,9 +83,9 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 		float scale = 1.0f;
 
 		// draw_bsp_polygons(*bsp_tree, 10);
-		DrawModel(model, position, scale, WHITE);
+		// DrawModel(model, position, scale, WHITE);
 		DrawModelWires(model, position, scale, MAROON);
-		draw_polygons(bsp_tree->polygons, GREEN);
+		// draw_polygons(bsp_tree->polygons, GREEN);
 	}
 }
 
@@ -90,8 +99,8 @@ bool RaylibRenderer::load_obj(const char *filename) {
 		model = LoadModel(filename);
 
 		// Build BSP tree with validated mesh
-		bsp_tree = std::make_unique<BSPTree>();
-		bsp_tree->build(model.meshes[0]);
+		// bsp_tree = std::make_unique<BSPTree>();
+		// bsp_tree->build(model.meshes[0]);
 
 		model_loaded = true;
 		return true;
