@@ -1,4 +1,3 @@
-
 #pragma once
 #include <btBulletDynamicsCommon.h>
 #include <raylib.h>
@@ -35,4 +34,12 @@ private:
 	static constexpr float PLAYER_HEIGHT = 2.0f;
 	static constexpr float PLAYER_RADIUS = 0.5f;
 	static constexpr float PLAYER_MASS = 1.0f;
+
+	// Movement constants
+	static constexpr float MOVE_SPEED = 10.0f;
+	static constexpr float JUMP_FORCE = 5.0f;
+
+	// Movement state
+	Vector3 moveDirection;
+	bool isJumping;
 };

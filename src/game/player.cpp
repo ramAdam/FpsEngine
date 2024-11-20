@@ -1,4 +1,5 @@
 #include "player.h"
+#include <raymath.h>
 
 Player::Player() :
 		physicsBody(nullptr),
@@ -46,6 +47,49 @@ void Player::initCamera(const Vector3 &position) {
 }
 
 void Player::update(float deltaTime) {
+	// Handle movement input
+	moveDirection = { 0, 0, 0 };
+
+	// Forward/Backward
+	if (IsKeyDown(KEY_W))
+		moveDirection.z = 1.0f;
+	if (IsKeyDown(KEY_S))
+		moveDirection.z = -1.0f;
+
+	// Left/Right
+	if (IsKeyDown(KEY_A))
+		moveDirection.x = -1.0f;
+	if (IsKeyDown(KEY_D))
+		moveDirection.x = 1.0f;
+
+	// Jump
+	if (IsKeyPressed(KEY_SPACE) && OnGround()) {
+		physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
+	}
+
+	// Calculate movement vector based on camera direction
+	Vector3 forward = Vector3Subtract(camera.target, camera.position);
+	forward.y = 0; // Keep movement horizontal
+	forward = Vector3Normalize(forward);
+
+	Vector3 right = Vector3CrossProduct(forward, { 0, 1, 0 });
+
+	// Combine movement
+	Vector3 finalMove = { 0 };
+	if (moveDirection.x != 0 || moveDirection.z != 0) {
+		finalMove = Vector3Add(
+				Vector3Scale(right, moveDirection.x),
+				Vector3Scale(forward, moveDirection.z));
+		finalMove = Vector3Scale(Vector3Normalize(finalMove), MOVE_SPEED);
+	}
+
+	// Apply movement force
+	if (physicsBody) {
+		btVector3 velocity = physicsBody->getLinearVelocity();
+		btVector3 horizontalVel(finalMove.x, 0, finalMove.z);
+		physicsBody->setLinearVelocity(btVector3(horizontalVel.x(), velocity.y(), horizontalVel.z()));
+	}
+
 	updateCamera();
 }
 
@@ -77,6 +121,16 @@ void Player::updateCamera() {
 }
 
 bool Player::OnGround() {
+	if (!physicsBody || !world)
+		return false;
+
+	btVector3 from = physicsBody->getWorldTransform().getOrigin();
+	btVector3 to = from - btVector3(0, 0.1f, 0);
+
+	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+	world->rayTest(from, to, rayCallback);
+
+	return rayCallback.hasHit();
 }
 
 void Player::setPosition(const Vector3 &position) {
