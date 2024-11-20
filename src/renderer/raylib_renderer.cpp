@@ -114,9 +114,8 @@ bool RaylibRenderer::load_obj(const char *filename) {
 	try {
 		model = LoadModel(filename);
 
-		// Build BSP tree with validated mesh
-		// bsp_tree = std::make_unique<BSPTree>();
-		// bsp_tree->build(model.meshes[0]);
+		// Create collision shapes from model
+		physics.createCollisionFromModel(model);
 
 		model_loaded = true;
 		return true;

@@ -1,4 +1,3 @@
-
 #include "physics_manager.h"
 
 PhysicsManager::PhysicsManager() :
@@ -39,46 +38,26 @@ void PhysicsManager::createGround() {
 	dynamicsWorld->addRigidBody(groundBody);
 }
 
-// void PhysicsManager::createPlayer(const btVector3 &startPos) {
-// 	btCollisionShape *capsule = new btCapsuleShape(0.5f, 1.0f);
-// 	btTransform startTransform;
-// 	startTransform.setIdentity();
-// 	startTransform.setOrigin(startPos);
-
-// 	btScalar mass(80.0); // 80 kg player
-// 	btVector3 localInertia(0, 0, 0);
-// 	capsule->calculateLocalInertia(mass, localInertia);
-
-// 	btDefaultMotionState *motionState = new btDefaultMotionState(startTransform);
-// 	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, capsule, localInertia);
-// 	playerBody = new btRigidBody(rbInfo);
-
-// 	playerBody->setAngularFactor(btVector3(0, 1, 0)); // Only allow rotation around Y axis
-// 	playerBody->setActivationState(DISABLE_DEACTIVATION);
-
-// 	dynamicsWorld->addRigidBody(playerBody);
-// }
-
 void PhysicsManager::update(float deltaTime) {
 	dynamicsWorld->stepSimulation(deltaTime, 10);
 }
 
-// btVector3 PhysicsManager::getPlayerPosition() const {
-// 	if (!playerBody)
-// 		return btVector3(0, 0, 0);
-// 	btTransform trans;
-// 	playerBody->getMotionState()->getWorldTransform(trans);
-// 	return trans.getOrigin();
-// }
-
 void PhysicsManager::cleanup() {
 	if (dynamicsWorld) {
-		// if (playerBody) {
-		// 	dynamicsWorld->removeRigidBody(playerBody);
-		// 	delete playerBody->getMotionState();
-		// 	delete playerBody->getCollisionShape();
-		// 	delete playerBody;
-		// }
+		// Clean up static bodies
+		for (auto body : staticBodies) {
+			dynamicsWorld->removeRigidBody(body);
+			delete body->getMotionState();
+			delete body;
+		}
+		staticBodies.clear();
+
+		// Clean up collision shapes
+		for (auto shape : collisionShapes) {
+			delete shape;
+		}
+		collisionShapes.clear();
+
 		if (groundBody) {
 			dynamicsWorld->removeRigidBody(groundBody);
 			delete groundBody->getMotionState();
@@ -86,4 +65,40 @@ void PhysicsManager::cleanup() {
 			delete groundBody;
 		}
 	}
+}
+
+void PhysicsManager::createCollisionFromModel(const Model &model) {
+	// Process each mesh in the model
+	for (int i = 0; i < model.meshCount; i++) {
+		const Mesh &mesh = model.meshes[i];
+
+		// Create triangle mesh
+		btTriangleMesh *triangleMesh = new btTriangleMesh();
+
+		// Add all triangles to the mesh
+		for (int j = 0; j < mesh.vertexCount; j += 3) {
+			btVector3 vertex1(mesh.vertices[j * 3], mesh.vertices[j * 3 + 1], mesh.vertices[j * 3 + 2]);
+			btVector3 vertex2(mesh.vertices[(j + 1) * 3], mesh.vertices[(j + 1) * 3 + 1], mesh.vertices[(j + 2) * 3 + 2]);
+			btVector3 vertex3(mesh.vertices[(j + 2) * 3], mesh.vertices[(j + 2) * 3 + 1], mesh.vertices[(j + 2) * 3 + 2]);
+			triangleMesh->addTriangle(vertex1, vertex2, vertex3);
+		}
+
+		// Create collision shape from triangle mesh
+		btBvhTriangleMeshShape *meshShape = new btBvhTriangleMeshShape(triangleMesh, true);
+		addStaticCollisionShape(meshShape, btVector3(0, 0, 0));
+		collisionShapes.push_back(meshShape);
+	}
+}
+
+void PhysicsManager::addStaticCollisionShape(btCollisionShape *shape, const btVector3 &position) {
+	btTransform transform;
+	transform.setIdentity();
+	transform.setOrigin(position);
+
+	btDefaultMotionState *motionState = new btDefaultMotionState(transform);
+	btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, motionState, shape); // Mass = 0 for static body
+	btRigidBody *body = new btRigidBody(rbInfo);
+
+	dynamicsWorld->addRigidBody(body);
+	staticBodies.push_back(body);
 }
