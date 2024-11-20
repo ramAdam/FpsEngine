@@ -1,5 +1,6 @@
 #include "player.h"
 #include <raymath.h>
+#include <iostream>
 
 Player::Player() :
 		physicsBody(nullptr),
@@ -124,11 +125,27 @@ bool Player::OnGround() {
 	if (!physicsBody || !world)
 		return false;
 
-	btVector3 from = physicsBody->getWorldTransform().getOrigin();
-	btVector3 to = from - btVector3(0, 0.1f, 0);
+	std::cout << "Checking for ground..." << std::endl;
+
+	btTransform transform = physicsBody->getWorldTransform();
+	btVector3 from = transform.getOrigin();
+
+	// Cast ray from center of capsule to slightly below feet
+	// Account for capsule height and add a small threshold
+	float rayLength = PLAYER_HEIGHT / 2 + 0.5f; // Slightly longer than half height
+	btVector3 to = from - btVector3(0, rayLength, 0);
 
 	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+
+	// Ignore collisions with the player's own collision shape
+	rayCallback.m_collisionFilterMask = ~rayCallback.m_collisionFilterGroup;
+
 	world->rayTest(from, to, rayCallback);
+
+	// For debugging
+	if (rayCallback.hasHit()) {
+		std::cout << "Ground detected! Distance: " << rayCallback.m_closestHitFraction * rayLength << std::endl;
+	}
 
 	return rayCallback.hasHit();
 }
