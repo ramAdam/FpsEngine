@@ -87,8 +87,8 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 
 		// Adjust scale for better visibility
 		Vector3 position = { 0.0f, 0.0f, 0.0f };
-		// float scale = 0.5f; // Scale down the model
-		float scale = 1.0f;
+		float scale = 0.5f; // Scale down the model
+		// float scale = 1.0f;
 
 		// draw_bsp_polygons(*bsp_tree, 10);
 		DrawModel(model, position, scale, WHITE);

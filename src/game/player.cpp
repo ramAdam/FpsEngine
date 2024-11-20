@@ -7,7 +7,10 @@ Player::Player() :
 		world(nullptr),
 		yaw(0.0f),
 		pitch(0.0f),
-		mouseSensitivity(0.003f) {
+		mouseSensitivity(0.003f),
+		isJumping(false),
+		wasOnGround(false),
+		jumpCooldown(0) {
 	initCamera({ 0, 0, 0 });
 }
 
@@ -48,50 +51,90 @@ void Player::initCamera(const Vector3 &position) {
 }
 
 void Player::update(float deltaTime) {
-	// Handle movement input
+	handleMovementInput();
+	handleJump();
+
+	Vector3 moveDir = calculateMoveDirection();
+	bool onGround = OnGround();
+
+	// Apply different movement characteristics based on ground state
+	float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
+
+	if (moveDir.x != 0 || moveDir.z != 0) {
+		applyMovement(Vector3Scale(moveDir, currentSpeed));
+	}
+
+	// Apply ground drag when on ground
+	if (onGround) {
+		btVector3 vel = physicsBody->getLinearVelocity();
+		vel.setX(vel.x() * GROUND_DRAG);
+		vel.setZ(vel.z() * GROUND_DRAG);
+		physicsBody->setLinearVelocity(vel);
+	}
+
+	// Update jump state
+	wasOnGround = onGround;
+	if (jumpCooldown > 0)
+		jumpCooldown -= deltaTime;
+
+	updateCamera();
+}
+
+void Player::handleMovementInput() {
 	moveDirection = { 0, 0, 0 };
 
-	// Forward/Backward
 	if (IsKeyDown(KEY_W))
 		moveDirection.z = 1.0f;
 	if (IsKeyDown(KEY_S))
 		moveDirection.z = -1.0f;
-
-	// Left/Right
 	if (IsKeyDown(KEY_A))
 		moveDirection.x = -1.0f;
 	if (IsKeyDown(KEY_D))
 		moveDirection.x = 1.0f;
+}
 
-	// Jump
-	if (IsKeyPressed(KEY_SPACE) && OnGround()) {
+void Player::handleJump() {
+	if (!physicsBody)
+		return;
+
+	bool onGround = OnGround();
+	if (IsKeyPressed(KEY_SPACE) && onGround && jumpCooldown <= 0) {
+		physicsBody->setLinearVelocity(btVector3(
+				physicsBody->getLinearVelocity().x(),
+				0, // Reset vertical velocity before jump
+				physicsBody->getLinearVelocity().z()));
 		physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
+		isJumping = true;
+		jumpCooldown = 0.1f; // Prevent jump spam
+	}
+}
+
+Vector3 Player::calculateMoveDirection() {
+	if (moveDirection.x == 0 && moveDirection.z == 0) {
+		return { 0, 0, 0 };
 	}
 
-	// Calculate movement vector based on camera direction
+	// Get forward and right vectors from camera
 	Vector3 forward = Vector3Subtract(camera.target, camera.position);
 	forward.y = 0; // Keep movement horizontal
 	forward = Vector3Normalize(forward);
-
 	Vector3 right = Vector3CrossProduct(forward, { 0, 1, 0 });
 
 	// Combine movement
-	Vector3 finalMove = { 0 };
-	if (moveDirection.x != 0 || moveDirection.z != 0) {
-		finalMove = Vector3Add(
-				Vector3Scale(right, moveDirection.x),
-				Vector3Scale(forward, moveDirection.z));
-		finalMove = Vector3Scale(Vector3Normalize(finalMove), MOVE_SPEED);
-	}
+	Vector3 finalMove = Vector3Add(
+			Vector3Scale(right, moveDirection.x),
+			Vector3Scale(forward, moveDirection.z));
 
-	// Apply movement force
-	if (physicsBody) {
-		btVector3 velocity = physicsBody->getLinearVelocity();
-		btVector3 horizontalVel(finalMove.x, 0, finalMove.z);
-		physicsBody->setLinearVelocity(btVector3(horizontalVel.x(), velocity.y(), horizontalVel.z()));
-	}
+	return Vector3Normalize(finalMove);
+}
 
-	updateCamera();
+void Player::applyMovement(const Vector3 &direction) {
+	if (!physicsBody)
+		return;
+
+	btVector3 velocity = physicsBody->getLinearVelocity();
+	btVector3 horizontalVel(direction.x, 0, direction.z);
+	physicsBody->setLinearVelocity(btVector3(horizontalVel.x(), velocity.y(), horizontalVel.z()));
 }
 
 void Player::handleMouseInput(float deltaX, float deltaY) {
@@ -125,8 +168,6 @@ bool Player::OnGround() {
 	if (!physicsBody || !world)
 		return false;
 
-	std::cout << "Checking for ground..." << std::endl;
-
 	btTransform transform = physicsBody->getWorldTransform();
 	btVector3 from = transform.getOrigin();
 
@@ -143,9 +184,9 @@ bool Player::OnGround() {
 	world->rayTest(from, to, rayCallback);
 
 	// For debugging
-	if (rayCallback.hasHit()) {
-		std::cout << "Ground detected! Distance: " << rayCallback.m_closestHitFraction * rayLength << std::endl;
-	}
+	// if (rayCallback.hasHit()) {
+	// 	std::cout << "Ground detected! Distance: " << rayCallback.m_closestHitFraction * rayLength << std::endl;
+	// }
 
 	return rayCallback.hasHit();
 }

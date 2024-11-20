@@ -23,6 +23,12 @@ private:
 	void createPhysicsBody(const Vector3 &position);
 	void updateCamera();
 
+	// New movement methods
+	void handleMovementInput();
+	void applyMovement(const Vector3 &direction);
+	void handleJump();
+	Vector3 calculateMoveDirection();
+
 	btRigidBody *physicsBody;
 	btDynamicsWorld *world;
 	Camera3D camera;
@@ -38,8 +44,13 @@ private:
 	// Movement constants
 	static constexpr float MOVE_SPEED = 10.0f;
 	static constexpr float JUMP_FORCE = 5.0f;
+	static constexpr float AIR_CONTROL = 0.3f; // Movement control in air
+	static constexpr float GROUND_DRAG = 0.9f; // Ground movement dampening
 
 	// Movement state
 	Vector3 moveDirection;
+	Vector3 velocity;
 	bool isJumping;
+	bool wasOnGround;
+	float jumpCooldown;
 };

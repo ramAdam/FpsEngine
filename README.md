@@ -1,5 +1,3 @@
-# libqodot-cpp & libmap-cpp
+# FPS Engine with Raylib and Bullet
 
-Godot engine libmap-cpp bindings
-
-Includes a port of [libmap](https://github.com/QodotPlugin/libmap/) to C++ (allowing multiple instances of the Qodot class) and a port of the main Qodot library to C++ as a Godot engine module.
+This project is an attempt to create a first-person shooter (FPS) engine using Raylib and the Bullet physics engine. The goal is to enable the direct import of models into the engine, focusing on essential features needed for a small FPS engine. We might add BSP-based collision to see if there is a noticeable change in performance. PRs are welcome.
