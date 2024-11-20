@@ -1,8 +1,13 @@
-
 #include "player.h"
 
 Player::Player() :
-		physicsBody(nullptr), world(nullptr), camera(nullptr) {}
+		physicsBody(nullptr),
+		world(nullptr),
+		yaw(0.0f),
+		pitch(0.0f),
+		mouseSensitivity(0.003f) {
+	initCamera({ 0, 0, 0 });
+}
 
 Player::~Player() {
 	cleanup();
@@ -32,26 +37,43 @@ void Player::createPhysicsBody(const Vector3 &position) {
 	world->addRigidBody(physicsBody);
 }
 
-void Player::attachCamera(Camera *cam) {
-	camera = cam;
-	if (camera) {
-		Vector3 pos = getPosition();
-		camera->position = pos;
-		camera->up = (Vector3){ 0.0f, 1.0f, 0.0f };
-		camera->fovy = 60.0f;
-		camera->projection = CAMERA_PERSPECTIVE;
-	}
+void Player::initCamera(const Vector3 &position) {
+	camera.position = position;
+	camera.target = { position.x, position.y, position.z + 1.0f };
+	camera.up = { 0.0f, 1.0f, 0.0f };
+	camera.fovy = 60.0f;
+	camera.projection = CAMERA_PERSPECTIVE;
 }
 
 void Player::update(float deltaTime) {
-	if (camera) {
-		updateCamera();
-	}
+	updateCamera();
+}
+
+void Player::handleMouseInput(float deltaX, float deltaY) {
+	yaw += deltaX * mouseSensitivity;
+	pitch -= deltaY * mouseSensitivity;
+
+	// Clamp pitch to avoid camera flipping
+	if (pitch > 1.5f)
+		pitch = 1.5f;
+	if (pitch < -1.5f)
+		pitch = -1.5f;
 }
 
 void Player::updateCamera() {
 	Vector3 pos = getPosition();
-	camera->position = pos;
+	camera.position = pos;
+
+	// Calculate camera target based on rotation
+	float dx = cos(pitch) * cos(yaw);
+	float dy = sin(pitch);
+	float dz = cos(pitch) * sin(yaw);
+
+	camera.target = {
+		pos.x + dx,
+		pos.y + dy,
+		pos.z + dz
+	};
 }
 
 bool Player::OnGround() {

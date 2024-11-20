@@ -20,7 +20,6 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 
 	physics.init();
 	player.init(physics.getDynamicsWorld(), camera.position);
-	player.attachCamera(&camera);
 }
 
 void RaylibRenderer::handle_camera_input() {
@@ -37,15 +36,24 @@ void RaylibRenderer::handle_camera_input() {
 void RaylibRenderer::begin_frame() {
 	handle_camera_input();
 
-	// Update physics
+	if (cameraMode == CAMERA_FIRST_PERSON && mouse_locked) {
+		Vector2 mouseDelta = GetMouseDelta();
+		player.handleMouseInput(mouseDelta.x, mouseDelta.y);
+	}
+
 	physics.update(GetFrameTime());
 	player.update(GetFrameTime());
 
-	UpdateCamera(&camera, cameraMode);
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
-	BeginMode3D(camera);
 
+	// Use player's camera in first person mode, otherwise use renderer camera
+	if (cameraMode == CAMERA_FIRST_PERSON) {
+		BeginMode3D(player.getCamera());
+	} else {
+		UpdateCamera(&camera, cameraMode);
+		BeginMode3D(camera);
+	}
 	// Draw debug grid
 	// if (show_grid) {
 	// 	DrawGrid(grid_slices, grid_spacing);
