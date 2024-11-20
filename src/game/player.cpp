@@ -224,3 +224,34 @@ void Player::cleanup() {
 		physicsBody = nullptr;
 	}
 }
+
+void Player::drawDebugCapsule(bool drawRaycast) {
+	if (!showDebug || !physicsBody)
+		return;
+
+	Vector3 pos = getPosition();
+
+	// Draw capsule body (cylinder)
+	DrawCylinderWires(
+			{ pos.x, pos.y, pos.z },
+			PLAYER_RADIUS,
+			PLAYER_RADIUS,
+			PLAYER_HEIGHT,
+			DEBUG_CAPSULE_SEGMENTS,
+			DEBUG_CAPSULE_COLOR);
+
+	// Draw top hemisphere
+	Vector3 topCenter = { pos.x, pos.y + PLAYER_HEIGHT / 2, pos.z };
+	DrawSphereWires(topCenter, PLAYER_RADIUS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_COLOR);
+
+	// Draw bottom hemisphere
+	Vector3 bottomCenter = { pos.x, pos.y - PLAYER_HEIGHT / 2, pos.z };
+	DrawSphereWires(bottomCenter, PLAYER_RADIUS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_COLOR);
+
+	// Draw ground check raycast
+	if (drawRaycast) {
+		float rayLength = PLAYER_HEIGHT / 2 + 0.5f;
+		Vector3 rayEnd = { pos.x, pos.y - rayLength, pos.z };
+		DrawLine3D(pos, rayEnd, DEBUG_RAYCAST_COLOR);
+	}
+}

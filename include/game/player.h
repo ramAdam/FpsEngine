@@ -19,6 +19,9 @@ public:
 	void handleMouseInput(float deltaX, float deltaY);
 	void initCamera(const Vector3 &position);
 
+	void drawDebugCapsule(bool drawRaycast = true);
+	void toggleDebugDraw() { showDebug = !showDebug; }
+
 private:
 	void createPhysicsBody(const Vector3 &position);
 	void updateCamera();
@@ -53,4 +56,9 @@ private:
 	bool isJumping;
 	bool wasOnGround;
 	float jumpCooldown;
+
+	bool showDebug = true;
+	static constexpr float DEBUG_CAPSULE_SEGMENTS = 12;
+	static constexpr Color DEBUG_CAPSULE_COLOR = GREEN;
+	static constexpr Color DEBUG_RAYCAST_COLOR = RED;
 };

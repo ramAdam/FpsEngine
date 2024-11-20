@@ -30,6 +30,8 @@ void RaylibRenderer::handle_camera_input() {
 		cameraMode = CAMERA_FIRST_PERSON;
 		player.setPosition(player_start);
 		std::cout << "Camera Mode: FIRST PERSON" << std::endl;
+	} else if (IsKeyPressed(KEY_F1)) {
+		player.toggleDebugDraw();
 	}
 }
 
@@ -53,6 +55,8 @@ void RaylibRenderer::begin_frame() {
 	} else {
 		UpdateCamera(&camera, cameraMode);
 		BeginMode3D(camera);
+		// Draw debug visualization when not in first person
+		player.drawDebugCapsule();
 	}
 	// Draw debug grid
 	// if (show_grid) {
@@ -65,6 +69,10 @@ void RaylibRenderer::begin_frame() {
 
 void RaylibRenderer::end_frame() {
 	EndMode3D();
+
+	// Draw FPS in top-left corner
+	DrawFPS(10, 10);
+
 	EndDrawing();
 }
 
