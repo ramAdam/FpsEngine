@@ -27,7 +27,7 @@ void Player::createPhysicsBody(const Vector3 &position) {
 	btCollisionShape *capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
 	btTransform transform;
 	transform.setIdentity();
-	transform.setOrigin(btVector3(position.x, position.y, position.z));
+	transform.setOrigin(btVector3(position.x, position.y + PLAYER_HEIGHT / 2, position.z));
 
 	btVector3 localInertia(0, 0, 0);
 	capsule->calculateLocalInertia(PLAYER_MASS, localInertia);

@@ -40,8 +40,8 @@ private:
 	float pitch = 0.0f; // Camera rotation around X axis
 	const float mouseSensitivity = 0.003f;
 
-	static constexpr float PLAYER_HEIGHT = 2.0f;
-	static constexpr float PLAYER_RADIUS = 0.5f;
+	static constexpr float PLAYER_HEIGHT = 1.8f;
+	static constexpr float PLAYER_RADIUS = 0.4f;
 	static constexpr float PLAYER_MASS = 1.0f;
 
 	// Movement constants

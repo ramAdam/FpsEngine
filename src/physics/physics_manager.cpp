@@ -68,26 +68,27 @@ void PhysicsManager::cleanup() {
 }
 
 void PhysicsManager::createCollisionFromModel(const Model &model) {
-	// Process each mesh in the model
-	for (int i = 0; i < model.meshCount; i++) {
-		const Mesh &mesh = model.meshes[i];
+	// Create a simple box collision shape based on model bounds
+	BoundingBox bounds = GetMeshBoundingBox(model.meshes[0]);
 
-		// Create triangle mesh
-		btTriangleMesh *triangleMesh = new btTriangleMesh();
+	// Calculate box dimensions
+	btVector3 boxExtents(
+			(bounds.max.x - bounds.min.x) * 0.5f,
+			(bounds.max.y - bounds.min.y) * 0.5f,
+			(bounds.max.z - bounds.min.z) * 0.5f);
 
-		// Add all triangles to the mesh
-		for (int j = 0; j < mesh.vertexCount; j += 3) {
-			btVector3 vertex1(mesh.vertices[j * 3], mesh.vertices[j * 3 + 1], mesh.vertices[j * 3 + 2]);
-			btVector3 vertex2(mesh.vertices[(j + 1) * 3], mesh.vertices[(j + 1) * 3 + 1], mesh.vertices[(j + 2) * 3 + 2]);
-			btVector3 vertex3(mesh.vertices[(j + 2) * 3], mesh.vertices[(j + 2) * 3 + 1], mesh.vertices[(j + 2) * 3 + 2]);
-			triangleMesh->addTriangle(vertex1, vertex2, vertex3);
-		}
+	// Create box shape
+	btBoxShape *boxShape = new btBoxShape(boxExtents);
 
-		// Create collision shape from triangle mesh
-		btBvhTriangleMeshShape *meshShape = new btBvhTriangleMeshShape(triangleMesh, true);
-		addStaticCollisionShape(meshShape, btVector3(0, 0, 0));
-		collisionShapes.push_back(meshShape);
-	}
+	// Calculate center position
+	btVector3 position(
+			(bounds.max.x + bounds.min.x) * 0.5f,
+			(bounds.max.y + bounds.min.y) * 0.5f,
+			(bounds.max.z + bounds.min.z) * 0.5f);
+
+	// Add to physics world
+	addStaticCollisionShape(boxShape, position);
+	collisionShapes.push_back(boxShape);
 }
 
 void PhysicsManager::addStaticCollisionShape(btCollisionShape *shape, const btVector3 &position) {

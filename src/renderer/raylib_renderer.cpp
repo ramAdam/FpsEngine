@@ -100,7 +100,7 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 
 		// draw_bsp_polygons(*bsp_tree, 10);
 		DrawModel(model, position, scale, WHITE);
-		DrawModelWires(model, position, scale, MAROON);
+		// DrawModelWires(model, position, scale, MAROON);
 		// draw_polygons(bsp_tree->polygons, GREEN);
 	}
 }
