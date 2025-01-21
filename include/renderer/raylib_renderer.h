@@ -7,7 +7,8 @@
 #include "renderer_interface.h"
 #include <include/bsp/bsp.h>
 
-class RaylibRenderer : public RendererInterface {
+class RaylibRenderer : public RendererInterface
+{
 private:
 	std::unique_ptr<BSPTree> bsp_tree;
 	Model model;
@@ -36,7 +37,7 @@ public:
 	void begin_frame() override;
 	void end_frame() override;
 	void cleanup() override;
-	void render_mesh(const MeshData &mesh) override;
+	void render_mesh() override;
 	void set_camera_speed(float speed) { cameraSpeed = speed; };
 	void set_camera_mode(int mode) { cameraMode = mode; };
 	void toggle_grid() { show_grid = !show_grid; }
