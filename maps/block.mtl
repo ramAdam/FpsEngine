@@ -1,8 +1,8 @@
-# Blender 4.2.1 LTS MTL File: 'block.blend'
+# Blender 4.3.0 MTL File: 'block.blend'
 # www.blender.org
 
 newmtl floor
-Ns 928.595032
+Ns 0.000000
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
 Ke 0.000000 0.000000 0.000000

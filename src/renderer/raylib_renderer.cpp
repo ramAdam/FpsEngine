@@ -9,7 +9,7 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	SetTargetFPS(60);
 
 	// Initialize default camera
-	camera.position = (Vector3){ 0.0f, 2.0f, 10.0f };
+	camera.position = (Vector3){ 0.0f, 20.0f, 10.0f };
 	set_player_start(camera.position);
 	camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
 	camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -17,43 +17,68 @@ void RaylibRenderer::init(int width, int height, const char *title) {
 	camera.projection = CAMERA_PERSPECTIVE;
 	DisableCursor();
 	mouse_locked = true;
+
+	physics.init();
+	player.init(physics.getDynamicsWorld(), camera.position);
 }
 
 void RaylibRenderer::handle_camera_input() {
-	Vector3 newPos = camera.position;
-
 	if (IsKeyPressed(KEY_ONE)) {
 		cameraMode = CAMERA_FREE;
 		std::cout << "Camera Mode: FREE" << std::endl;
 	} else if (IsKeyPressed(KEY_TWO)) {
 		cameraMode = CAMERA_FIRST_PERSON;
-		camera.position = player_start;
+		player.setPosition(player_start);
 		std::cout << "Camera Mode: FIRST PERSON" << std::endl;
+	} else if (IsKeyPressed(KEY_F1)) {
+		player.toggleDebugDraw();
 	}
 }
 
 void RaylibRenderer::begin_frame() {
 	handle_camera_input();
-	UpdateCamera(&camera, cameraMode); // Use stored camera mode
+
+	if (cameraMode == CAMERA_FIRST_PERSON && mouse_locked) {
+		Vector2 mouseDelta = GetMouseDelta();
+		player.handleMouseInput(mouseDelta.x, mouseDelta.y);
+	}
+
+	physics.update(GetFrameTime());
+	player.update(GetFrameTime());
+
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
-	BeginMode3D(camera);
 
-	// Draw debug grid
-	if (show_grid) {
-		DrawGrid(grid_slices, grid_spacing);
-		DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
-		DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
-		DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
+	// Use player's camera in first person mode, otherwise use renderer camera
+	if (cameraMode == CAMERA_FIRST_PERSON) {
+		BeginMode3D(player.getCamera());
+	} else {
+		UpdateCamera(&camera, cameraMode);
+		BeginMode3D(camera);
+		// Draw debug visualization when not in first person
+		player.drawDebugCapsule();
 	}
+	// Draw debug grid
+	// if (show_grid) {
+	// 	DrawGrid(grid_slices, grid_spacing);
+	// 	DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
+	// 	DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
+	// 	DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
+	// }
 }
 
 void RaylibRenderer::end_frame() {
 	EndMode3D();
+
+	// Draw FPS in top-left corner
+	DrawFPS(10, 10);
+
 	EndDrawing();
 }
 
 void RaylibRenderer::cleanup() {
+	player.cleanup();
+	physics.cleanup();
 	if (model_loaded) {
 		UnloadModel(model);
 	}
@@ -70,13 +95,13 @@ void RaylibRenderer::render_mesh(const MeshData &mesh) {
 
 		// Adjust scale for better visibility
 		Vector3 position = { 0.0f, 0.0f, 0.0f };
-		// float scale = 0.5f; // Scale down the model
-		float scale = 1.0f;
+		float scale = 0.5f; // Scale down the model
+		// float scale = 1.0f;
 
 		// draw_bsp_polygons(*bsp_tree, 10);
 		DrawModel(model, position, scale, WHITE);
-		DrawModelWires(model, position, scale, MAROON);
-		draw_polygons(bsp_tree->polygons, GREEN);
+		// DrawModelWires(model, position, scale, MAROON);
+		// draw_polygons(bsp_tree->polygons, GREEN);
 	}
 }
 
@@ -89,9 +114,8 @@ bool RaylibRenderer::load_obj(const char *filename) {
 	try {
 		model = LoadModel(filename);
 
-		// Build BSP tree with validated mesh
-		bsp_tree = std::make_unique<BSPTree>();
-		bsp_tree->build(model.meshes[0]);
+		// Create collision shapes from model
+		physics.createCollisionFromModel(model);
 
 		model_loaded = true;
 		return true;

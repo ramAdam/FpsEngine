@@ -1,6 +1,8 @@
 // include/renderer/raylib_renderer.h
 #pragma once
 
+#include "physics_manager.h"
+#include "player.h"
 #include "raylib.h"
 #include "renderer_interface.h"
 #include <include/bsp/bsp.h>
@@ -10,6 +12,7 @@ private:
 	std::unique_ptr<BSPTree> bsp_tree;
 	Model model;
 	Camera3D camera;
+	Player player;
 	Vector3 player_start;
 	int cameraMode = CAMERA_FIRST_PERSON;
 	float cameraSpeed = 0.5f;
@@ -22,6 +25,7 @@ private:
 	bool model_loaded;
 	void handle_camera_input(); // Add this method declaration
 	float player_radius = 1.0f; // Collision sphere radius
+	PhysicsManager physics;
 
 	// Add this method declaration
 	void draw_polygon(const Polygon &poly, Color color);

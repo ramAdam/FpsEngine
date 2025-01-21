@@ -23,7 +23,7 @@ void printMeshData(const MeshData &mesh, int meshIndex) {
 
 int main(int argc, char *argv[]) {
 	auto renderer = std::make_unique<RaylibRenderer>();
-	renderer->init(800, 600, "Raylib Renderer for Trench Broom Maps");
+	renderer->init(800, 600, "FPS Engine");
 	renderer->set_camera_speed(0.5f);
 	// renderer->toggle_wireframe();
 
