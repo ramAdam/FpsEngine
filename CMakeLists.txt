@@ -14,6 +14,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bsp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/physics
     ${CMAKE_CURRENT_SOURCE_DIR}/include/game
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ai
 )
 
 # Collect source files
