@@ -1,28 +1,30 @@
 #include "physics_manager.h"
 
-PhysicsManager::PhysicsManager() :
-		groundBody(nullptr) {}
+PhysicsManager::PhysicsManager() : groundBody(nullptr) {}
 
-PhysicsManager::~PhysicsManager() {
+PhysicsManager::~PhysicsManager()
+{
 	cleanup();
 }
 
-void PhysicsManager::init() {
+void PhysicsManager::init()
+{
 	collisionConfiguration = std::make_unique<btDefaultCollisionConfiguration>();
 	dispatcher = std::make_unique<btCollisionDispatcher>(collisionConfiguration.get());
 	overlappingPairCache = std::make_unique<btDbvtBroadphase>();
 	solver = std::make_unique<btSequentialImpulseConstraintSolver>();
 	dynamicsWorld = std::make_unique<btDiscreteDynamicsWorld>(
-			dispatcher.get(),
-			overlappingPairCache.get(),
-			solver.get(),
-			collisionConfiguration.get());
+		dispatcher.get(),
+		overlappingPairCache.get(),
+		solver.get(),
+		collisionConfiguration.get());
 
 	dynamicsWorld->setGravity(btVector3(0, -9.81f, 0));
 	createGround();
 }
 
-void PhysicsManager::createGround() {
+void PhysicsManager::createGround()
+{
 	btCollisionShape *groundShape = new btBoxShape(btVector3(50, 1, 50));
 	btTransform groundTransform;
 	groundTransform.setIdentity();
@@ -38,60 +40,66 @@ void PhysicsManager::createGround() {
 	dynamicsWorld->addRigidBody(groundBody);
 }
 
-void PhysicsManager::update(float deltaTime) {
+void PhysicsManager::update(float deltaTime)
+{
 	dynamicsWorld->stepSimulation(deltaTime, 10);
 }
 
-void PhysicsManager::cleanup() {
-	if (dynamicsWorld) {
-		// Clean up static bodies
-		for (auto body : staticBodies) {
-			dynamicsWorld->removeRigidBody(body);
-			delete body->getMotionState();
-			delete body;
-		}
-		staticBodies.clear();
+void PhysicsManager::cleanup()
+{
+	// Clean up static bodies
+	for (auto body : staticBodies)
+	{
+		delete body->getMotionState();
+		delete body;
+	}
+	staticBodies.clear();
 
-		// Clean up collision shapes
-		for (auto shape : collisionShapes) {
-			delete shape;
-		}
-		collisionShapes.clear();
+	// Clean up collision shapes
+	for (auto shape : collisionShapes)
+	{
+		delete shape;
+	}
+	collisionShapes.clear();
 
-		if (groundBody) {
-			dynamicsWorld->removeRigidBody(groundBody);
-			delete groundBody->getMotionState();
-			delete groundBody->getCollisionShape();
-			delete groundBody;
-		}
+	// Clean up ground body
+	if (groundBody)
+	{
+		dynamicsWorld->removeRigidBody(groundBody);
+		delete groundBody->getMotionState();
+		delete groundBody->getCollisionShape();
+		delete groundBody;
+		groundBody = nullptr;
 	}
 }
 
-void PhysicsManager::createCollisionFromModel(const Model &model) {
+void PhysicsManager::createCollisionFromModel(const Model &model)
+{
 	// Create a simple box collision shape based on model bounds
 	BoundingBox bounds = GetMeshBoundingBox(model.meshes[0]);
 
 	// Calculate box dimensions
 	btVector3 boxExtents(
-			(bounds.max.x - bounds.min.x) * 0.5f,
-			(bounds.max.y - bounds.min.y) * 0.5f,
-			(bounds.max.z - bounds.min.z) * 0.5f);
+		(bounds.max.x - bounds.min.x) * 0.5f,
+		(bounds.max.y - bounds.min.y) * 0.5f,
+		(bounds.max.z - bounds.min.z) * 0.5f);
 
 	// Create box shape
 	btBoxShape *boxShape = new btBoxShape(boxExtents);
 
 	// Calculate center position
 	btVector3 position(
-			(bounds.max.x + bounds.min.x) * 0.5f,
-			(bounds.max.y + bounds.min.y) * 0.5f,
-			(bounds.max.z + bounds.min.z) * 0.5f);
+		(bounds.max.x + bounds.min.x) * 0.5f,
+		(bounds.max.y + bounds.min.y) * 0.5f,
+		(bounds.max.z + bounds.min.z) * 0.5f);
 
 	// Add to physics world
 	addStaticCollisionShape(boxShape, position);
 	collisionShapes.push_back(boxShape);
 }
 
-void PhysicsManager::addStaticCollisionShape(btCollisionShape *shape, const btVector3 &position) {
+void PhysicsManager::addStaticCollisionShape(btCollisionShape *shape, const btVector3 &position)
+{
 	btTransform transform;
 	transform.setIdentity();
 	transform.setOrigin(position);
