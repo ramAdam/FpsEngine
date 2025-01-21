@@ -24,6 +24,8 @@
 *.swo
 *~
 *.DS_Store
+.clang-tidy
+.clang-format
 Thumbs.db
 textures/
 src/map
