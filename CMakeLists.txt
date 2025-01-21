@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/map
     ${CMAKE_CURRENT_SOURCE_DIR}/include/renderer
     ${CMAKE_CURRENT_SOURCE_DIR}/include/bsp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/physics
@@ -23,14 +22,14 @@ file(GLOB_RECURSE SOURCES
     "include/*.cpp"
 )
 
-# Add raylib
+# Add raylib and Bullet
 find_package(raylib REQUIRED)
 find_package(Bullet REQUIRED)
 
 # Create the target BEFORE linking
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
 
-# Now we can link libraries
+# link libraries
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE 
     raylib
     ${BULLET_LIBRARIES}
