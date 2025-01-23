@@ -11,7 +11,7 @@
 RaylibRenderer::RaylibRenderer()
 {
 	cameraManager = std::make_unique<CameraManager>();
-	resourceManager = std::make_unique<ResourceManager>();
+	resourceManager = std::make_unique<ResourceManager>(physics);
 	debugRenderer = std::make_unique<DebugRenderer>();
 }
 
@@ -87,14 +87,12 @@ void RaylibRenderer::renderScene()
 		BeginMode3D(player.getCamera());
 	}
 	else
-	{
+	{ //
 		cameraManager->update();
-		BeginMode3D(cameraManager->getCamera());
+		// 		BeginMode3D(cameraManager->getCamera());
 		player.drawDebugCapsule();
 	}
 
-	// debugRenderer->drawGrid();
-	// debugRenderer->drawAxes();
 	render_mesh();
 
 	EndMode3D();

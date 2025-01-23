@@ -20,7 +20,7 @@ void PhysicsManager::init()
 		collisionConfiguration.get());
 
 	dynamicsWorld->setGravity(btVector3(0, -9.81f, 0));
-	createGround();
+	// createGround();
 }
 
 void PhysicsManager::createGround()

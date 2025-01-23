@@ -1,6 +1,7 @@
-
 #include "resource_manager.h"
 #include <iostream>
+
+ResourceManager::ResourceManager(PhysicsManager &physics) : physicsManager(physics) {}
 
 ResourceManager::~ResourceManager()
 {
@@ -18,6 +19,8 @@ bool ResourceManager::loadModel(const std::string &name, const char *filename)
     try
     {
         Model model = LoadModel(filename);
+        // Create physics collision for the model
+        physicsManager.createCollisionFromModel(model);
         models[name] = model;
         return true;
     }
@@ -53,6 +56,16 @@ Texture2D *ResourceManager::getTexture(const std::string &name)
     return it != textures.end() ? &it->second : nullptr;
 }
 
+void ResourceManager::removeModel(const std::string &name)
+{
+    auto it = models.find(name);
+    if (it != models.end())
+    {
+        UnloadModel(it->second);
+        models.erase(it);
+    }
+}
+
 void ResourceManager::unloadAll()
 {
     for (auto &[name, model] : models)
@@ -65,4 +78,5 @@ void ResourceManager::unloadAll()
     }
     models.clear();
     textures.clear();
+    // Physics cleanup is handled by PhysicsManager's destructor
 }
