@@ -1,8 +1,10 @@
 #pragma once
 #include <btBulletDynamicsCommon.h>
 #include <raylib.h>
+#include "input_manager.h"
 
-class Player {
+class Player
+{
 public:
 	Player();
 	~Player();
@@ -36,7 +38,7 @@ private:
 	btDynamicsWorld *world;
 	Camera3D camera;
 
-	float yaw = 0.0f; // Camera rotation around Y axis
+	float yaw = 0.0f;	// Camera rotation around Y axis
 	float pitch = 0.0f; // Camera rotation around X axis
 	const float mouseSensitivity = 0.003f;
 

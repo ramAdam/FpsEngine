@@ -2,28 +2,32 @@
 #include <raymath.h>
 #include <iostream>
 
-Player::Player() :
-		physicsBody(nullptr),
-		world(nullptr),
-		yaw(0.0f),
-		pitch(0.0f),
-		mouseSensitivity(0.003f),
-		isJumping(false),
-		wasOnGround(false),
-		jumpCooldown(0) {
-	initCamera({ 0, 0, 0 });
+Player::Player() : physicsBody(nullptr),
+				   world(nullptr),
+				   yaw(0.0f),
+				   pitch(0.0f),
+				   mouseSensitivity(0.003f),
+				   isJumping(false),
+				   wasOnGround(false),
+				   jumpCooldown(0)
+{
+	initCamera({0, 0, 0});
 }
 
-Player::~Player() {
+Player::~Player()
+{
 	cleanup();
 }
 
-void Player::init(btDynamicsWorld *dynamicsWorld, const Vector3 &startPos) {
+void Player::init(btDynamicsWorld *dynamicsWorld, const Vector3 &startPos)
+{
 	world = dynamicsWorld;
 	createPhysicsBody(startPos);
+	// Remove InputManager initialization
 }
 
-void Player::createPhysicsBody(const Vector3 &position) {
+void Player::createPhysicsBody(const Vector3 &position)
+{
 	btCollisionShape *capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
 	btTransform transform;
 	transform.setIdentity();
@@ -42,15 +46,19 @@ void Player::createPhysicsBody(const Vector3 &position) {
 	world->addRigidBody(physicsBody);
 }
 
-void Player::initCamera(const Vector3 &position) {
+void Player::initCamera(const Vector3 &position)
+{
 	camera.position = position;
-	camera.target = { position.x, position.y, position.z + 1.0f };
-	camera.up = { 0.0f, 1.0f, 0.0f };
+	camera.target = {position.x, position.y, position.z + 1.0f};
+	camera.up = {0.0f, 1.0f, 0.0f};
 	camera.fovy = 60.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 }
 
-void Player::update(float deltaTime) {
+void Player::update(float deltaTime)
+{
+	// Replace inputManager-> with InputManager::getInstance().
+	// No need to update InputManager here as it's done in RaylibRenderer
 	handleMovementInput();
 	handleJump();
 
@@ -60,12 +68,14 @@ void Player::update(float deltaTime) {
 	// Apply different movement characteristics based on ground state
 	float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
 
-	if (moveDir.x != 0 || moveDir.z != 0) {
+	if (moveDir.x != 0 || moveDir.z != 0)
+	{
 		applyMovement(Vector3Scale(moveDir, currentSpeed));
 	}
 
 	// Apply ground drag when on ground
-	if (onGround) {
+	if (onGround)
+	{
 		btVector3 vel = physicsBody->getLinearVelocity();
 		vel.setX(vel.x() * GROUND_DRAG);
 		vel.setZ(vel.z() * GROUND_DRAG);
@@ -80,55 +90,62 @@ void Player::update(float deltaTime) {
 	updateCamera();
 }
 
-void Player::handleMovementInput() {
-	moveDirection = { 0, 0, 0 };
+void Player::handleMovementInput()
+{
+	moveDirection = {0, 0, 0};
 
-	if (IsKeyDown(KEY_W))
+	auto &input = InputManager::getInstance();
+	if (input.isActionPressed(InputAction::MOVE_FORWARD))
 		moveDirection.z = 1.0f;
-	if (IsKeyDown(KEY_S))
+	if (input.isActionPressed(InputAction::MOVE_BACKWARD))
 		moveDirection.z = -1.0f;
-	if (IsKeyDown(KEY_A))
+	if (input.isActionPressed(InputAction::MOVE_LEFT))
 		moveDirection.x = -1.0f;
-	if (IsKeyDown(KEY_D))
+	if (input.isActionPressed(InputAction::MOVE_RIGHT))
 		moveDirection.x = 1.0f;
 }
 
-void Player::handleJump() {
+void Player::handleJump()
+{
 	if (!physicsBody)
 		return;
 
 	bool onGround = OnGround();
-	if (IsKeyPressed(KEY_SPACE) && onGround && jumpCooldown <= 0) {
+	if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP) && onGround && jumpCooldown <= 0)
+	{
 		physicsBody->setLinearVelocity(btVector3(
-				physicsBody->getLinearVelocity().x(),
-				0, // Reset vertical velocity before jump
-				physicsBody->getLinearVelocity().z()));
+			physicsBody->getLinearVelocity().x(),
+			0, // Reset vertical velocity before jump
+			physicsBody->getLinearVelocity().z()));
 		physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
 		isJumping = true;
 		jumpCooldown = 0.1f; // Prevent jump spam
 	}
 }
 
-Vector3 Player::calculateMoveDirection() {
-	if (moveDirection.x == 0 && moveDirection.z == 0) {
-		return { 0, 0, 0 };
+Vector3 Player::calculateMoveDirection()
+{
+	if (moveDirection.x == 0 && moveDirection.z == 0)
+	{
+		return {0, 0, 0};
 	}
 
 	// Get forward and right vectors from camera
 	Vector3 forward = Vector3Subtract(camera.target, camera.position);
 	forward.y = 0; // Keep movement horizontal
 	forward = Vector3Normalize(forward);
-	Vector3 right = Vector3CrossProduct(forward, { 0, 1, 0 });
+	Vector3 right = Vector3CrossProduct(forward, {0, 1, 0});
 
 	// Combine movement
 	Vector3 finalMove = Vector3Add(
-			Vector3Scale(right, moveDirection.x),
-			Vector3Scale(forward, moveDirection.z));
+		Vector3Scale(right, moveDirection.x),
+		Vector3Scale(forward, moveDirection.z));
 
 	return Vector3Normalize(finalMove);
 }
 
-void Player::applyMovement(const Vector3 &direction) {
+void Player::applyMovement(const Vector3 &direction)
+{
 	if (!physicsBody)
 		return;
 
@@ -137,7 +154,8 @@ void Player::applyMovement(const Vector3 &direction) {
 	physicsBody->setLinearVelocity(btVector3(horizontalVel.x(), velocity.y(), horizontalVel.z()));
 }
 
-void Player::handleMouseInput(float deltaX, float deltaY) {
+void Player::handleMouseInput(float deltaX, float deltaY)
+{
 	yaw += deltaX * mouseSensitivity;
 	pitch -= deltaY * mouseSensitivity;
 
@@ -148,7 +166,8 @@ void Player::handleMouseInput(float deltaX, float deltaY) {
 		pitch = -1.5f;
 }
 
-void Player::updateCamera() {
+void Player::updateCamera()
+{
 	Vector3 pos = getPosition();
 	camera.position = pos;
 
@@ -160,11 +179,11 @@ void Player::updateCamera() {
 	camera.target = {
 		pos.x + dx,
 		pos.y + dy,
-		pos.z + dz
-	};
+		pos.z + dz};
 }
 
-bool Player::OnGround() {
+bool Player::OnGround()
+{
 	if (!physicsBody || !world)
 		return false;
 
@@ -191,7 +210,8 @@ bool Player::OnGround() {
 	return rayCallback.hasHit();
 }
 
-void Player::setPosition(const Vector3 &position) {
+void Player::setPosition(const Vector3 &position)
+{
 	if (!physicsBody)
 		return;
 
@@ -205,18 +225,22 @@ void Player::setPosition(const Vector3 &position) {
 	physicsBody->setAngularVelocity(btVector3(0, 0, 0));
 }
 
-Vector3 Player::getPosition() const {
+Vector3 Player::getPosition() const
+{
 	if (!physicsBody)
-		return (Vector3){ 0, 0, 0 };
+		return (Vector3){0, 0, 0};
 
 	btTransform transform;
 	physicsBody->getMotionState()->getWorldTransform(transform);
 	btVector3 pos = transform.getOrigin();
-	return (Vector3){ pos.x(), pos.y(), pos.z() };
+	return (Vector3){pos.x(), pos.y(), pos.z()};
 }
 
-void Player::cleanup() {
-	if (world && physicsBody) {
+void Player::cleanup()
+{
+	// Remove InputManager cleanup
+	if (world && physicsBody)
+	{
 		world->removeRigidBody(physicsBody);
 		delete physicsBody->getMotionState();
 		delete physicsBody->getCollisionShape();
@@ -225,7 +249,8 @@ void Player::cleanup() {
 	}
 }
 
-void Player::drawDebugCapsule(bool drawRaycast) {
+void Player::drawDebugCapsule(bool drawRaycast)
+{
 	if (!showDebug || !physicsBody)
 		return;
 
@@ -233,25 +258,26 @@ void Player::drawDebugCapsule(bool drawRaycast) {
 
 	// Draw capsule body (cylinder)
 	DrawCylinderWires(
-			{ pos.x, pos.y, pos.z },
-			PLAYER_RADIUS,
-			PLAYER_RADIUS,
-			PLAYER_HEIGHT,
-			DEBUG_CAPSULE_SEGMENTS,
-			DEBUG_CAPSULE_COLOR);
+		{pos.x, pos.y, pos.z},
+		PLAYER_RADIUS,
+		PLAYER_RADIUS,
+		PLAYER_HEIGHT,
+		DEBUG_CAPSULE_SEGMENTS,
+		DEBUG_CAPSULE_COLOR);
 
 	// Draw top hemisphere
-	Vector3 topCenter = { pos.x, pos.y + PLAYER_HEIGHT / 2, pos.z };
+	Vector3 topCenter = {pos.x, pos.y + PLAYER_HEIGHT / 2, pos.z};
 	DrawSphereWires(topCenter, PLAYER_RADIUS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_COLOR);
 
 	// Draw bottom hemisphere
-	Vector3 bottomCenter = { pos.x, pos.y - PLAYER_HEIGHT / 2, pos.z };
+	Vector3 bottomCenter = {pos.x, pos.y - PLAYER_HEIGHT / 2, pos.z};
 	DrawSphereWires(bottomCenter, PLAYER_RADIUS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_SEGMENTS, DEBUG_CAPSULE_COLOR);
 
 	// Draw ground check raycast
-	if (drawRaycast) {
+	if (drawRaycast)
+	{
 		float rayLength = PLAYER_HEIGHT / 2 + 0.5f;
-		Vector3 rayEnd = { pos.x, pos.y - rayLength, pos.z };
+		Vector3 rayEnd = {pos.x, pos.y - rayLength, pos.z};
 		DrawLine3D(pos, rayEnd, DEBUG_RAYCAST_COLOR);
 	}
 }

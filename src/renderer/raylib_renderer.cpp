@@ -1,186 +1,136 @@
 #include "raylib_renderer.h"
 #include "raymath.h"
+#include "camera_manager.h"
 #include <cstring>	  // For std::memcpy
 #include <functional> // For std::hash
 #include <iostream>
+#include "input_manager.h"
+#include "debug_renderer.h"
+#include "resource_manager.h"
+
+RaylibRenderer::RaylibRenderer()
+{
+	cameraManager = std::make_unique<CameraManager>();
+	resourceManager = std::make_unique<ResourceManager>();
+	debugRenderer = std::make_unique<DebugRenderer>();
+}
+
+RaylibRenderer::~RaylibRenderer()
+{
+	if (IsWindowReady())
+	{ // Check if window is still valid
+		player.cleanup();
+		physics.cleanup();
+		resourceManager->unloadAll();
+		CloseWindow();
+	}
+}
 
 void RaylibRenderer::init(int width, int height, const char *title)
 {
 	InitWindow(width, height, title);
 	SetTargetFPS(60);
 
-	// Initialize default camera
-	camera.position = (Vector3){0.0f, 20.0f, 10.0f};
-	set_player_start(camera.position);
-	camera.target = (Vector3){0.0f, 0.0f, 0.0f};
-	camera.up = (Vector3){0.0f, 1.0f, 0.0f};
-	camera.fovy = 60.0f;
-	camera.projection = CAMERA_PERSPECTIVE;
-	DisableCursor();
-	mouse_locked = true;
+	// Initialize input and lock mouse by default for FPS controls
+	auto &input = InputManager::getInstance();
+	input.toggleMouseLock();
 
+	cameraManager->init({0.0f, 20.0f, 10.0f});
 	physics.init();
-	player.init(physics.getDynamicsWorld(), camera.position);
+	player.init(physics.getDynamicsWorld(), cameraManager->getCamera().position);
 }
 
-void RaylibRenderer::handle_camera_input()
+void RaylibRenderer::handleInput()
 {
-	if (IsKeyPressed(KEY_ONE))
-	{
-		cameraMode = CAMERA_FREE;
-		std::cout << "Camera Mode: FREE" << std::endl;
-	}
-	else if (IsKeyPressed(KEY_TWO))
-	{
-		cameraMode = CAMERA_FIRST_PERSON;
-		player.setPosition(player_start);
-		std::cout << "Camera Mode: FIRST PERSON" << std::endl;
-	}
-	else if (IsKeyPressed(KEY_F1))
-	{
-		player.toggleDebugDraw();
-	}
-}
+	auto &input = InputManager::getInstance();
+	input.update();
 
-void RaylibRenderer::begin_frame()
-{
-	handle_camera_input();
-
-	if (cameraMode == CAMERA_FIRST_PERSON && mouse_locked)
+	// Camera mode switching
+	if (input.isActionJustPressed(InputAction::TOGGLE_CAMERA_MODE))
 	{
-		Vector2 mouseDelta = GetMouseDelta();
+		cameraManager->toggleMode();
+	}
+
+	// Debug toggles
+	if (input.isActionJustPressed(InputAction::TOGGLE_DEBUG))
+	{
+		debugRenderer->toggleGrid();
+	}
+
+	// Mouse lock toggle
+	if (IsKeyPressed(KEY_ESCAPE))
+	{
+		input.toggleMouseLock();
+	}
+
+	// Player input is now handled within the Player class
+	if (cameraManager->getCurrentMode() == CAMERA_FIRST_PERSON)
+	{
+		Vector2 mouseDelta = input.getMouseDelta();
 		player.handleMouseInput(mouseDelta.x, mouseDelta.y);
 	}
+}
 
-	physics.update(GetFrameTime());
-	player.update(GetFrameTime());
+void RaylibRenderer::updateSimulation(float deltaTime)
+{
+	physics.update(deltaTime);
+	player.update(deltaTime);
+}
 
+void RaylibRenderer::renderScene()
+{
 	BeginDrawing();
 	ClearBackground(DARKGRAY);
 
-	// Use player's camera in first person mode, otherwise use renderer camera
-	if (cameraMode == CAMERA_FIRST_PERSON)
+	if (cameraManager->getCurrentMode() == CAMERA_FIRST_PERSON)
 	{
 		BeginMode3D(player.getCamera());
 	}
 	else
 	{
-		UpdateCamera(&camera, cameraMode);
-		BeginMode3D(camera);
-		// Draw debug visualization when not in first person
+		cameraManager->update();
+		BeginMode3D(cameraManager->getCamera());
 		player.drawDebugCapsule();
 	}
-	// Draw debug grid
-	// if (show_grid) {
-	// 	DrawGrid(grid_slices, grid_spacing);
-	// 	DrawLine3D({ 0, 0, 0 }, { 5, 0, 0 }, RED); // X axis
-	// 	DrawLine3D({ 0, 0, 0 }, { 0, 5, 0 }, GREEN); // Y axis
-	// 	DrawLine3D({ 0, 0, 0 }, { 0, 0, 5 }, BLUE); // Z axis
-	// }
+
+	// debugRenderer->drawGrid();
+	// debugRenderer->drawAxes();
+	render_mesh();
+
+	EndMode3D();
+	DrawFPS(10, 10);
+	EndDrawing();
+}
+
+void RaylibRenderer::begin_frame()
+{
+	handleInput();
+	updateSimulation(GetFrameTime());
+	renderScene();
 }
 
 void RaylibRenderer::end_frame()
 {
-	EndMode3D();
-
-	// Draw FPS in top-left corner
-	DrawFPS(10, 10);
-
-	EndDrawing();
+	// This function is now empty as its functionality has been moved to renderScene()
 }
 
 void RaylibRenderer::cleanup()
 {
-	player.cleanup();
-	physics.cleanup();
-	if (model_loaded)
-	{
-		UnloadModel(model);
-	}
-	CloseWindow();
-}
-
-void RaylibRenderer::render_mesh()
-{
-	if (model_loaded)
-	{
-		// Draw reference grid and axes
-		// DrawGrid(10, 1.0f);
-		DrawLine3D({0, 0, 0}, {5, 0, 0}, RED);	 // X
-		DrawLine3D({0, 0, 0}, {0, 5, 0}, GREEN); // Y
-		DrawLine3D({0, 0, 0}, {0, 0, 5}, BLUE);	 // Z
-
-		// Adjust scale for better visibility
-		Vector3 position = {0.0f, 0.0f, 0.0f};
-		float scale = 0.5f; // Scale down the model
-		// float scale = 1.0f;
-
-		// draw_bsp_polygons(*bsp_tree, 10);
-		DrawModel(model, position, scale, WHITE);
-		// DrawModelWires(model, position, scale, MAROON);
-		// draw_polygons(bsp_tree->polygons, GREEN);
-	}
+	// Empty function as cleanup is handled in destructor
 }
 
 bool RaylibRenderer::load_obj(const char *filename)
 {
-	if (!FileExists(filename))
-	{
-		std::cerr << "Error: Could not find OBJ file: " << filename << std::endl;
-		return false;
-	}
-
-	try
-	{
-		model = LoadModel(filename);
-
-		// Create collision shapes from model
-		physics.createCollisionFromModel(model);
-
-		model_loaded = true;
-		return true;
-	}
-	catch (const std::exception &e)
-	{
-		std::cerr << "Error loading model: " << e.what() << std::endl;
-		model_loaded = false;
-		return false;
-	}
+	return resourceManager->loadModel("main", filename);
 }
 
-void RaylibRenderer::set_player_start(const Vector3 &position)
+void RaylibRenderer::render_mesh()
 {
-	player_start = position;
-	camera.position = player_start;
-}
-
-void RaylibRenderer::draw_polygon(const Polygon &poly, Color color)
-{
-	for (size_t i = 0; i < poly.vertices.size(); ++i)
+	Model *model = resourceManager->getModel("main");
+	if (model)
 	{
-		const auto &v1 = poly.vertices[i];
-		const auto &v2 = poly.vertices[(i + 1) % poly.vertices.size()];
-		DrawLine3D(v1, v2, color);
-	}
-}
-
-void RaylibRenderer::draw_polygons(const std::vector<Polygon> &polygons, Color color)
-{
-	for (const auto &poly : polygons)
-	{
-		draw_polygon(poly, color);
-	}
-}
-
-void RaylibRenderer::toggle_mouse_lock()
-{
-	mouse_locked = !mouse_locked;
-	if (mouse_locked)
-	{
-		DisableCursor();
-	}
-	else
-	{
-		EnableCursor();
+		Vector3 position = {0.0f, 0.0f, 0.0f};
+		float scale = 0.5f;
+		DrawModel(*model, position, scale, WHITE);
 	}
 }
