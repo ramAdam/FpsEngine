@@ -1,5 +1,5 @@
-
 #include "debug_renderer.h"
+#include "navigation_mesh.h"
 
 void DebugRenderer::drawGrid()
 {
@@ -35,4 +35,45 @@ void DebugRenderer::drawPolygons(const std::vector<Polygon> &polys, Color color)
     {
         drawPolygon(poly, color);
     }
+}
+
+void DebugRenderer::drawNavMesh(const NavigationMesh &navMesh, Color wireColor, Color faceColor)
+{
+    if (!show_nav_mesh)
+        return;
+
+    const auto &triangles = navMesh.getTriangles();
+    const auto &vertices = navMesh.getVertices();
+
+    for (const auto &triangle : triangles)
+    {
+        drawNavMeshTriangle(triangle, vertices, wireColor, faceColor);
+    }
+}
+
+void DebugRenderer::drawNavMeshTriangle(const NavTriangle &triangle,
+                                        const std::vector<glm::vec3> &vertices,
+                                        Color wireColor, Color faceColor)
+{
+    // Get triangle vertices
+    Vector3 v1 = {vertices[triangle.vertices[0]].x,
+                  vertices[triangle.vertices[0]].y,
+                  vertices[triangle.vertices[0]].z};
+    Vector3 v2 = {vertices[triangle.vertices[1]].x,
+                  vertices[triangle.vertices[1]].y,
+                  vertices[triangle.vertices[1]].z};
+    Vector3 v3 = {vertices[triangle.vertices[2]].x,
+                  vertices[triangle.vertices[2]].y,
+                  vertices[triangle.vertices[2]].z};
+
+    // Draw filled triangle
+    if (!show_wireframe)
+    {
+        DrawTriangle3D(v1, v2, v3, faceColor);
+    }
+
+    // Draw wireframe
+    DrawLine3D(v1, v2, wireColor);
+    DrawLine3D(v2, v3, wireColor);
+    DrawLine3D(v3, v1, wireColor);
 }

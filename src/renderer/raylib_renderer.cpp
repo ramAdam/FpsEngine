@@ -63,6 +63,7 @@ void RaylibRenderer::handleInput()
 	{
 		std::cout << "Toggling debug" << std::endl;
 		debugRenderer->toggleGrid();
+		debugRenderer->toggleNavMesh();
 		updatePathTests();
 	}
 
@@ -104,6 +105,11 @@ void RaylibRenderer::renderScene()
 
 	render_mesh();
 
+	if (debugRenderer->isNavMeshVisible() && navMesh)
+	{
+		debugRenderer->drawNavMesh(*navMesh);
+	}
+
 	EndMode3D();
 	DrawFPS(10, 10);
 	EndDrawing();
@@ -144,7 +150,7 @@ void RaylibRenderer::render_mesh()
 	if (model)
 	{
 		Vector3 position = {0.0f, 0.0f, 0.0f};
-		float scale = 0.5f;
+		float scale = 1.0f;
 		DrawModel(*model, position, scale, WHITE);
 	}
 }
