@@ -38,7 +38,7 @@ private:
 	std::vector<PathTest> pathTests;
 
 	void handleInput();
-	void updateSimulation(float deltaTime);
+	void update(float deltaTime);
 	void renderScene();
 
 public:
@@ -47,8 +47,7 @@ public:
 
 	// Core functionality
 	void init(int width, int height, const char *title) override;
-	void begin_frame() override;
-	void end_frame() override;
+	void processFrame() override;
 	void cleanup() override;
 	void render_mesh() override;
 	bool load_obj(const char *filename);

@@ -81,7 +81,7 @@ void RaylibRenderer::handleInput()
 	}
 }
 
-void RaylibRenderer::updateSimulation(float deltaTime)
+void RaylibRenderer::update(float deltaTime)
 {
 	physics.update(deltaTime);
 	player.update(deltaTime);
@@ -97,9 +97,9 @@ void RaylibRenderer::renderScene()
 		BeginMode3D(player.getCamera());
 	}
 	else
-	{ //
+	{
 		cameraManager->update();
-		// 		BeginMode3D(cameraManager->getCamera());
+		BeginMode3D(cameraManager->getCamera());
 		player.drawDebugCapsule();
 	}
 
@@ -112,19 +112,15 @@ void RaylibRenderer::renderScene()
 
 	EndMode3D();
 	DrawFPS(10, 10);
+	DrawText("Press c to toggle camera mode", 10, 30, 10, WHITE);
 	EndDrawing();
 }
 
-void RaylibRenderer::begin_frame()
+void RaylibRenderer::processFrame()
 {
 	handleInput();
-	updateSimulation(GetFrameTime());
+	update(GetFrameTime());
 	renderScene();
-}
-
-void RaylibRenderer::end_frame()
-{
-	// This function is now empty as its functionality has been moved to renderScene()
 }
 
 void RaylibRenderer::cleanup()

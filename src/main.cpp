@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 
 	while (!WindowShouldClose())
 	{
-		renderer->begin_frame();
+		renderer->processFrame();
 
 		// renderer->render_mesh();
 	}
