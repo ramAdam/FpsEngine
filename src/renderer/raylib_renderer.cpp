@@ -7,12 +7,19 @@
 #include "input_manager.h"
 #include "debug_renderer.h"
 #include "resource_manager.h"
+#include "pathfinding.h"
+#include "navigation_mesh.h"
 
 RaylibRenderer::RaylibRenderer()
 {
 	cameraManager = std::make_unique<CameraManager>();
 	resourceManager = std::make_unique<ResourceManager>(physics);
 	debugRenderer = std::make_unique<DebugRenderer>();
+	navMesh = std::make_unique<NavigationMesh>();
+
+	// Add some default test paths
+	addPathTest({0, 0, 0}, {10, 0, 10});
+	addPathTest({-5, 0, -5}, {5, 0, 5});
 }
 
 RaylibRenderer::~RaylibRenderer()
@@ -54,7 +61,9 @@ void RaylibRenderer::handleInput()
 	// Debug toggles
 	if (input.isActionJustPressed(InputAction::TOGGLE_DEBUG))
 	{
+		std::cout << "Toggling debug" << std::endl;
 		debugRenderer->toggleGrid();
+		updatePathTests();
 	}
 
 	// Mouse lock toggle
@@ -119,7 +128,14 @@ void RaylibRenderer::cleanup()
 
 bool RaylibRenderer::load_obj(const char *filename)
 {
-	return resourceManager->loadModel("main", filename);
+	bool model_loaded = resourceManager->loadModel("main", filename);
+	if (model_loaded && navMesh)
+	{
+		const Model &model = *resourceManager->getModel("main");
+		navMesh->buildFromMesh(model);
+	}
+
+	return model_loaded;
 }
 
 void RaylibRenderer::render_mesh()
@@ -131,4 +147,24 @@ void RaylibRenderer::render_mesh()
 		float scale = 0.5f;
 		DrawModel(*model, position, scale, WHITE);
 	}
+}
+
+void RaylibRenderer::addPathTest(const glm::vec3 &start, const glm::vec3 &end)
+{
+	pathTests.push_back({start, end, {}});
+}
+
+void RaylibRenderer::updatePathTests()
+{
+	if (!navMesh)
+		return;
+
+	Pathfinder pathfinder(navMesh.get());
+	for (auto &test : pathTests)
+	{
+		test.currentPath = pathfinder.find_path(test.start, test.end);
+	}
+
+	// print size of pathTests
+	std::cout << "PathTests size: " << pathTests.size() << std::endl;
 }
