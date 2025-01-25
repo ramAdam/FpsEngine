@@ -18,8 +18,8 @@ RaylibRenderer::RaylibRenderer()
 	navMesh = std::make_unique<NavigationMesh>();
 
 	// Add some default test paths
-	addPathTest({0, 0, 0}, {10, 0, 10});
-	addPathTest({-5, 0, -5}, {5, 0, 5});
+	addPathTest({1, 1, 10}, {0, 1, 10});
+	addPathTest({2, 1, 15}, {0, 1, 10});
 }
 
 RaylibRenderer::~RaylibRenderer()
@@ -64,7 +64,6 @@ void RaylibRenderer::handleInput()
 		std::cout << "Toggling debug" << std::endl;
 		debugRenderer->toggleGrid();
 		debugRenderer->toggleNavMesh();
-		updatePathTests();
 	}
 
 	// Mouse lock toggle
@@ -78,6 +77,13 @@ void RaylibRenderer::handleInput()
 	{
 		Vector2 mouseDelta = input.getMouseDelta();
 		player.handleMouseInput(mouseDelta.x, mouseDelta.y);
+	}
+
+	if (IsKeyPressed(KEY_P))
+	{ // Add path debug toggle
+		std::cout << "Toggling path debug" << std::endl;
+		togglePathDebug();
+		toggleNavMeshDebug();
 	}
 }
 
@@ -108,7 +114,10 @@ void RaylibRenderer::renderScene()
 	if (debugRenderer->isNavMeshVisible() && navMesh)
 	{
 		debugRenderer->drawNavMesh(*navMesh);
+		debugRenderer->drawNavMeshBounds(*navMesh);
 	}
+	drawDebugPaths();
+	drawNavMeshDebug();
 
 	EndMode3D();
 	DrawFPS(10, 10);
@@ -123,11 +132,6 @@ void RaylibRenderer::processFrame()
 	renderScene();
 }
 
-void RaylibRenderer::cleanup()
-{
-	// Empty function as cleanup is handled in destructor
-}
-
 bool RaylibRenderer::load_obj(const char *filename)
 {
 	bool model_loaded = resourceManager->loadModel("main", filename);
@@ -135,6 +139,7 @@ bool RaylibRenderer::load_obj(const char *filename)
 	{
 		const Model &model = *resourceManager->getModel("main");
 		navMesh->buildFromMesh(model);
+		updatePathTests();
 	}
 
 	return model_loaded;
@@ -159,14 +164,103 @@ void RaylibRenderer::addPathTest(const glm::vec3 &start, const glm::vec3 &end)
 void RaylibRenderer::updatePathTests()
 {
 	if (!navMesh)
+	{
+		std::cout << "No nav mesh available" << std::endl;
 		return;
+	}
 
 	Pathfinder pathfinder(navMesh.get());
 	for (auto &test : pathTests)
 	{
-		test.currentPath = pathfinder.find_path(test.start, test.end);
-	}
+		std::cout << "Finding path from: "
+				  << test.start.x << "," << test.start.y << "," << test.start.z
+				  << " to: "
+				  << test.end.x << "," << test.end.y << "," << test.end.z << std::endl;
 
-	// print size of pathTests
-	std::cout << "PathTests size: " << pathTests.size() << std::endl;
+		test.currentPath = pathfinder.find_path(test.start, test.end);
+		std::cout << "Path size: " << test.currentPath.size() << std::endl;
+	}
+}
+
+void RaylibRenderer::cleanup()
+{
+	// Empty function as cleanup is handled in destructor
+}
+
+void RaylibRenderer::drawDebugPaths()
+{
+	if (!showPathDebug)
+		return;
+	// std::cout << "PathTests size: " << pathTests.size() << std::endl;
+	for (const auto &test : pathTests)
+	{
+		// Draw start and end points
+		DrawSphere({test.start.x, test.start.y + 0.1f, test.start.z}, 0.3f, GREEN);
+		DrawSphere({test.end.x, test.end.y + 0.1f, test.end.z}, 0.3f, RED);
+
+		// Check if path exists before drawing
+		if (test.currentPath.size() > 1)
+		{
+			// Draw path segments
+			for (size_t i = 0; i < test.currentPath.size() - 1; i++)
+			{
+				Vector3 current = {
+					test.currentPath[i].x,
+					test.currentPath[i].y + 0.1f,
+					test.currentPath[i].z};
+				Vector3 next = {
+					test.currentPath[i + 1].x,
+					test.currentPath[i + 1].y + 0.1f,
+					test.currentPath[i + 1].z};
+				DrawLine3D(current, next, YELLOW);
+			}
+		}
+	}
+}
+
+void RaylibRenderer::drawNavMeshDebug()
+{
+	if (!showNavMeshDebug || !navMesh)
+		return;
+
+	for (size_t i = 0; i < navMesh->getTriangleCount(); i++)
+	{
+		const auto &tri = navMesh->getTriangle(i);
+		Color color = GRAY;
+
+		if (i == 82 || i == 59)
+		{
+			color = RED;
+
+			// Draw neighbors
+			auto neighbors = navMesh->getTriangleNeighbors(i);
+			glm::vec3 center = navMesh->getTriangleCenter(i);
+
+			for (int neighbor : neighbors)
+			{
+				glm::vec3 nCenter = navMesh->getTriangleCenter(neighbor);
+				DrawLine3D(
+					{center.x, center.y + 0.1f, center.z},
+					{nCenter.x, nCenter.y + 0.1f, nCenter.z},
+					YELLOW);
+			}
+		}
+
+		// Get vertex positions
+		const auto &v1 = navMesh->getVertex(tri.v1());
+		const auto &v2 = navMesh->getVertex(tri.v2());
+		const auto &v3 = navMesh->getVertex(tri.v3());
+
+		// Draw filled triangle
+		DrawTriangle3D(
+			{v1.x, v1.y, v1.z},
+			{v2.x, v2.y, v2.z},
+			{v3.x, v3.y, v3.z},
+			color);
+
+		// Draw wireframe using individual lines
+		DrawLine3D({v1.x, v1.y, v1.z}, {v2.x, v2.y, v2.z}, BLACK);
+		DrawLine3D({v2.x, v2.y, v2.z}, {v3.x, v3.y, v3.z}, BLACK);
+		DrawLine3D({v3.x, v3.y, v3.z}, {v1.x, v1.y, v1.z}, BLACK);
+	}
 }

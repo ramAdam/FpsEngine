@@ -41,6 +41,9 @@ private:
 	void update(float deltaTime);
 	void renderScene();
 
+	bool showPathDebug = false;
+	void drawNavMeshDebug();
+
 public:
 	RaylibRenderer();
 	virtual ~RaylibRenderer() override; // Make destructor virtual and override
@@ -61,4 +64,6 @@ public:
 	void togglePathfindingTests() { showPathfindingTests = !showPathfindingTests; }
 	void addPathTest(const glm::vec3 &start, const glm::vec3 &end);
 	void updatePathTests();
+	void togglePathDebug() { showPathDebug = !showPathDebug; }
+	void drawDebugPaths();
 };

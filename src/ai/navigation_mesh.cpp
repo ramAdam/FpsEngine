@@ -133,31 +133,30 @@ void NavigationMesh::buildNeighborConnections()
 	}
 }
 
-int NavigationMesh::find_nearest_triangle(const glm::vec3 &point) const
+int NavigationMesh::findNearestTriangle(const glm::vec3 &point) const
 {
-	int nearest = -1;
-	float nearest_dist = FLT_MAX;
+	float nearestDist = std::numeric_limits<float>::max();
+	int nearestTri = -1;
 
-	for (size_t i = 0; i < triangles.size(); i++)
+	for (size_t i = 0; i < triangles.size(); ++i)
 	{
-		// Calculate triangle center
-		glm::vec3 center = (vertices[triangles[i].vertices[0]] +
-							vertices[triangles[i].vertices[1]] +
-							vertices[triangles[i].vertices[2]]) /
-						   3.0f;
+		const auto &tri = triangles[i];
+		glm::vec3 center = (vertices[triangles[i].vertices[0]] + vertices[triangles[i].vertices[1]] + vertices[triangles[i].vertices[2]]) / 3.0f;
 
-		float dist = glm::distance(center, point);
-		if (dist < nearest_dist)
+		float dist = glm::distance(point, center);
+		if (dist < nearestDist)
 		{
-			// Check if point is inside or above/below triangle
-			if (isPointInTriangle(point, triangles[i]))
+			// Check if point is above triangle and within reasonable height
+			float height = point.y - center.y;
+			if (height >= -1.0f && height <= 2.0f)
 			{
-				nearest = i;
-				nearest_dist = dist;
+				nearestDist = dist;
+				nearestTri = i;
 			}
 		}
 	}
-	return nearest;
+
+	return nearestTri;
 }
 
 bool NavigationMesh::isPointInTriangle(const glm::vec3 &p, const NavTriangle &triangle) const

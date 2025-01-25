@@ -26,6 +26,7 @@ public:
                              const std::vector<glm::vec3> &vertices,
                              Color wireColor,
                              Color faceColor);
+    void drawNavMeshBounds(const NavigationMesh &navMesh);
     void toggleGrid() { show_grid = !show_grid; }
     void toggleWireframe() { show_wireframe = !show_wireframe; }
     void toggleNavMesh() { show_nav_mesh = !show_nav_mesh; }

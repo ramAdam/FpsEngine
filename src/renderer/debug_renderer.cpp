@@ -77,3 +77,18 @@ void DebugRenderer::drawNavMeshTriangle(const NavTriangle &triangle,
     DrawLine3D(v2, v3, wireColor);
     DrawLine3D(v3, v1, wireColor);
 }
+
+void DebugRenderer::drawNavMeshBounds(const NavigationMesh &navMesh)
+{
+    auto bounds = navMesh.getBounds();
+
+    // Draw wireframe box
+    DrawCubeWires(
+        {(bounds.min.x + bounds.max.x) / 2,
+         (bounds.min.y + bounds.max.y) / 2,
+         (bounds.min.z + bounds.max.z) / 2},
+        bounds.max.x - bounds.min.x,
+        bounds.max.y - bounds.min.y,
+        bounds.max.z - bounds.min.z,
+        YELLOW);
+}
