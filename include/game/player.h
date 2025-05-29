@@ -33,6 +33,7 @@ private:
 	void applyMovement(const Vector3 &direction);
 	void handleJump();
 	Vector3 calculateMoveDirection();
+	bool checkGroundRaycast(); // Checks if player is on ground using raycast
 
 	btRigidBody *physicsBody;
 	btDynamicsWorld *world;
@@ -59,8 +60,14 @@ private:
 	bool wasOnGround;
 	float jumpCooldown;
 
+	// Added for slope handling
+	Vector3 lastGroundPosition;
+	Vector3 lastGroundNormal;
+
 	bool showDebug = true;
 	static constexpr float DEBUG_CAPSULE_SEGMENTS = 12;
 	static constexpr Color DEBUG_CAPSULE_COLOR = GREEN;
 	static constexpr Color DEBUG_RAYCAST_COLOR = RED;
+
+	float raycastDistance = 1.2f; // Slightly longer than capsule height/2 + small margin
 };

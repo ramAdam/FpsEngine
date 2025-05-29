@@ -124,6 +124,9 @@ void PhysicsManager::createCollisionFromModel(const Model &model)
 
 	// Create BVH triangle mesh shape for better performance
 	btBvhTriangleMeshShape *meshShape = new btBvhTriangleMeshShape(triangleMesh, true);
+	
+	// Add margin to smooth over tiny irregularities
+	meshShape->setMargin(0.05f);
 
 	// Create rigid body
 	btTransform transform;

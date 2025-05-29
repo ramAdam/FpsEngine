@@ -43,6 +43,10 @@ void Player::createPhysicsBody(const Vector3 &position)
 	physicsBody->setAngularFactor(btVector3(0, 1, 0));
 	physicsBody->setActivationState(DISABLE_DEACTIVATION);
 
+	// Add these parameters for smoother collision
+	physicsBody->setContactProcessingThreshold(0.025f);
+	physicsBody->setFriction(0.1f);  // Lower friction for smoother sliding
+
 	world->addRigidBody(physicsBody);
 }
 
@@ -57,22 +61,49 @@ void Player::initCamera(const Vector3 &position)
 
 void Player::update(float deltaTime)
 {
-	// Replace inputManager-> with InputManager::getInstance().
+	// Replace inputManager->with InputManager::getInstance().
 	// No need to update InputManager here as it's done in RaylibRenderer
 	handleMovementInput();
 	handleJump();
 
 	Vector3 moveDir = calculateMoveDirection();
-	bool onGround = OnGround();
+	bool onGround = checkGroundRaycast(); // Update ground state using raycast
 
 	// Apply different movement characteristics based on ground state
 	float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
 
 	if (moveDir.x != 0 || moveDir.z != 0)
 	{
-		applyMovement(Vector3Scale(moveDir, currentSpeed));
+		// Calculate target velocity based on movement direction
+		Vector3 targetVelocity = {
+			moveDir.x * currentSpeed,
+			0,
+			moveDir.z * currentSpeed
+		};
+		
+		// Get current velocity
+		btVector3 currentVel = physicsBody->getLinearVelocity();
+		Vector3 currentVelocity = {currentVel.x(), 0, currentVel.z()};
+		
+		// Interpolate between current and target velocity (smoothing)
+		float smoothFactor = onGround ? 0.15f : 0.05f; // More responsive on ground
+		
+		// Smooth velocity using linear interpolation
+		Vector3 smoothedVelocity = {
+			currentVelocity.x + (targetVelocity.x - currentVelocity.x) * smoothFactor,
+			0,
+			currentVelocity.z + (targetVelocity.z - currentVelocity.z) * smoothFactor
+		};
+		
+		// Apply the smoothed velocity
+		btVector3 newVelocity(
+			smoothedVelocity.x,
+			physicsBody->getLinearVelocity().y(), // Keep y velocity for gravity
+			smoothedVelocity.z
+		);
+		physicsBody->setLinearVelocity(newVelocity);
 	}
-
+	
 	// Apply ground drag when on ground
 	if (onGround)
 	{
@@ -208,6 +239,46 @@ bool Player::OnGround()
 	// }
 
 	return rayCallback.hasHit();
+}
+
+bool Player::checkGroundRaycast()
+{
+	if (!physicsBody || !world) return false;
+	
+	// Get current position
+	btTransform transform = physicsBody->getWorldTransform();
+	btVector3 from = transform.getOrigin();
+	
+	// Cast ray downward
+	btVector3 to = from + btVector3(0, -raycastDistance, 0);
+	
+	// Perform raycast
+	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+	
+	// Exclude player's own collision object
+	rayCallback.m_collisionFilterGroup = 0xFFFF;
+	rayCallback.m_collisionFilterMask = 0xFFFF & ~(physicsBody->getBroadphaseHandle()->m_collisionFilterGroup);
+	
+	// Perform raycast
+	world->rayTest(from, to, rayCallback);
+	
+	// Check if ray hit something
+	if (rayCallback.hasHit())
+	{
+		// Calculate distance to ground
+		float distance = (rayCallback.m_hitPointWorld - from).length();
+		
+		// Store hit position for slope calculations
+		lastGroundPosition = Vector3{
+			rayCallback.m_hitPointWorld.x(),
+			rayCallback.m_hitPointWorld.y(),
+			rayCallback.m_hitPointWorld.z()
+		};
+		
+		return distance < raycastDistance;
+	}
+	
+	return false;
 }
 
 void Player::setPosition(const Vector3 &position)
