@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 	// renderer->set_camera_speed(0.5f);
 	// renderer->toggle_wireframe();
 
-	std::string mapPath = "../maps/block.obj";
+	std::string mapPath = "../maps/pground_cube.obj";
 
 	if (renderer->load_obj(mapPath.c_str()))
 	{
