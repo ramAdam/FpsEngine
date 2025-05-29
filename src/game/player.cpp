@@ -216,7 +216,7 @@ void Player::handleJump()
 	}
 }
 
-Vector3 Player::calculateMoveDirection()
+Vector3 Player::calculateMoveDirection() const
 {
 	if (moveDirection.x == 0 && moveDirection.z == 0)
 	{
@@ -275,7 +275,7 @@ void Player::updateCamera()
 		pos.z + dz};
 }
 
-bool Player::OnGround()
+bool Player::OnGround() const
 {
 	if (!physicsBody || !world)
 		return false;
@@ -392,7 +392,7 @@ void Player::cleanup()
 	}
 }
 
-void Player::drawDebugCapsule(bool drawRaycast)
+void Player::drawDebugCapsule(bool drawRaycast) const
 {
 	if (!showDebug || !physicsBody)
 		return;
@@ -423,4 +423,45 @@ void Player::drawDebugCapsule(bool drawRaycast)
 		Vector3 rayEnd = {pos.x, pos.y - rayLength, pos.z};
 		DrawLine3D(pos, rayEnd, DEBUG_RAYCAST_COLOR);
 	}
+}
+
+void Player::drawDebugInfo(DebugRenderer* debugRenderer) const {
+    if (!showDebug || !debugRenderer) return;
+    
+    // Draw player capsule
+    drawDebugCapsule(true);
+    
+    // Highlight ground triangle under player
+    Vector3 position = getPosition();
+    Vector3 feetPos = {
+        position.x,
+        position.y - (PLAYER_HEIGHT / 2.0f),
+        position.z
+    };
+    
+    // Pass the physics world as the fourth parameter
+    debugRenderer->highlightTriangleAt(feetPos, 0.2f, PURPLE, world);
+    
+    // Draw velocity vector
+    btVector3 vel = physicsBody->getLinearVelocity();
+    Vector3 start = getPosition();
+    Vector3 end = {
+        start.x + vel.x() * 0.1f,
+        start.y + vel.y() * 0.1f,
+        start.z + vel.z() * 0.1f
+    };
+    
+    Color velColor = OnGround() ? GREEN : ORANGE;
+    DrawLine3D(start, end, velColor);
+    
+    // Draw movement direction
+    Vector3 moveDir = calculateMoveDirection();
+    if (moveDir.x != 0 || moveDir.z != 0) {
+        Vector3 moveEnd = {
+            start.x + moveDir.x * 1.0f,
+            start.y,
+            start.z + moveDir.z * 1.0f
+        };
+        DrawLine3D(start, moveEnd, BLUE);
+    }
 }

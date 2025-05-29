@@ -56,13 +56,14 @@ void RaylibRenderer::handleInput()
         cameraManager->toggleMode();
     }
 
-    // Debug toggles
+    // Debug toggles - improved with more options
     if (input.isActionJustPressed(InputAction::TOGGLE_DEBUG))
     {
         std::cout << "Toggling debug" << std::endl;
         debugRenderer->toggleGrid();
-        debugRenderer->toggleNavMesh();
-        debugRenderer->toggleCollisionShapes(); // Add this line
+        debugRenderer->toggleAxes();  // Added axes toggle
+        debugRenderer->toggleCollisionShapes();
+        player.toggleDebugDraw();  // Toggle player debug info
     }
 
     // Mouse lock toggle
@@ -93,33 +94,53 @@ void RaylibRenderer::renderScene()
     if (cameraManager->getCurrentMode() == CAMERA_FIRST_PERSON)
     {
         BeginMode3D(player.getCamera());
+        
+        // Draw physics debug in first-person mode too
+        if (debugRenderer->isCollisionDebugVisible())
+        {
+            debugRenderer->drawCollisionShapes(physics.getDynamicsWorld());
+        }
     }
     else
     {
         cameraManager->update();
         BeginMode3D(cameraManager->getCamera());
+        
+        // Draw player capsule in third-person mode
         player.drawDebugCapsule();
     }
 
+    // Always draw these in both camera modes
     render_mesh();
-
-    // Debug visualizations
-    if (debugRenderer->isNavMeshVisible() && navMesh)
+    
+    // Draw debug visualization
+    debugRenderer->drawGrid();
+    debugRenderer->drawAxes();
+    
+    // Draw collision shapes if enabled
+    if (debugRenderer->isCollisionDebugVisible())
     {
-        debugRenderer->drawNavMesh(*navMesh);
+        debugRenderer->drawCollisionShapes(physics.getDynamicsWorld());
+        
+        // Call the player's existing debug method - don't reimplement it
+        player.drawDebugInfo(debugRenderer.get());
     }
 
-    // Add collision shape visualization
-    debugRenderer->drawCollisionShapes(physics.getDynamicsWorld());
-
     EndMode3D();
+    
+    // 2D UI
     DrawFPS(10, 10);
-    DrawText("Press c to toggle camera mode", 10, 30, 10, WHITE);
-
-    // Add debug toggle information
-    if (debugRenderer->isNavMeshVisible() || debugRenderer->isCollisionDebugVisible())
+    DrawText("Press C to toggle camera mode", 10, 30, 20, WHITE);
+    DrawText("Press F1 to toggle debug visualization", 10, 55, 20, WHITE);
+    
+    // Show debug status
+    if (debugRenderer->isCollisionDebugVisible())
     {
-        DrawText("Debug visualization ON", 10, 50, 10, GREEN);
+        DrawText("Debug: ON", 10, 80, 20, GREEN);
+    }
+    else
+    {
+        DrawText("Debug: OFF", 10, 80, 20, RED);
     }
 
     EndDrawing();
@@ -159,3 +180,4 @@ void RaylibRenderer::cleanup()
 {
     // Empty function as cleanup is handled in destructor
 }
+

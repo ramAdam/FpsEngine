@@ -1,104 +1,38 @@
 #include "debug_renderer.h"
-#include "navigation_mesh.h"
+#include <iostream>
+
+DebugRenderer::DebugRenderer()
+{
+    // Initialize default values
+}
 
 void DebugRenderer::drawGrid()
 {
-    if (show_grid)
-    {
-        DrawGrid(grid_slices, grid_spacing);
-    }
+    if (!showGrid) return;
+    
+    // Draw a grid on the XZ plane
+    DrawGrid(grid_slices, grid_spacing);
 }
 
 void DebugRenderer::drawAxes()
 {
-    if (show_axes)
-    {
-        DrawLine3D({0, 0, 0}, {5, 0, 0}, RED);   // X axis
-        DrawLine3D({0, 0, 0}, {0, 5, 0}, GREEN); // Y axis
-        DrawLine3D({0, 0, 0}, {0, 0, 5}, BLUE);  // Z axis
-    }
+    if (!showAxes) return;
+    
+    // Draw world axes
+    DrawLine3D({0, 0, 0}, {1, 0, 0}, RED);    // X axis
+    DrawLine3D({0, 0, 0}, {0, 1, 0}, GREEN);  // Y axis
+    DrawLine3D({0, 0, 0}, {0, 0, 1}, BLUE);   // Z axis
 }
 
-void DebugRenderer::drawPolygon(const Polygon &poly, Color color)
+void DebugRenderer::drawCollisionShapes(btDynamicsWorld* dynamicsWorld)
 {
-    for (size_t i = 0; i < poly.vertices.size(); ++i)
-    {
-        const auto &v1 = poly.vertices[i];
-        const auto &v2 = poly.vertices[(i + 1) % poly.vertices.size()];
-        DrawLine3D(v1, v2, color);
-    }
-}
-
-void DebugRenderer::drawPolygons(const std::vector<Polygon> &polys, Color color)
-{
-    for (const auto &poly : polys)
-    {
-        drawPolygon(poly, color);
-    }
-}
-
-void DebugRenderer::drawNavMesh(const NavigationMesh &navMesh, Color wireColor, Color faceColor)
-{
-    if (!show_nav_mesh)
-        return;
-
-    const auto &triangles = navMesh.getTriangles();
-    const auto &vertices = navMesh.getVertices();
-
-    for (const auto &triangle : triangles)
-    {
-        drawNavMeshTriangle(triangle, vertices, wireColor, faceColor);
-    }
-}
-
-void DebugRenderer::drawNavMeshTriangle(const NavTriangle &triangle,
-                                        const std::vector<glm::vec3> &vertices,
-                                        Color wireColor, Color faceColor)
-{
-    // Get triangle vertices
-    Vector3 v1 = {vertices[triangle.vertices[0]].x,
-                  vertices[triangle.vertices[0]].y,
-                  vertices[triangle.vertices[0]].z};
-    Vector3 v2 = {vertices[triangle.vertices[1]].x,
-                  vertices[triangle.vertices[1]].y,
-                  vertices[triangle.vertices[1]].z};
-    Vector3 v3 = {vertices[triangle.vertices[2]].x,
-                  vertices[triangle.vertices[2]].y,
-                  vertices[triangle.vertices[2]].z};
-
-    // Draw filled triangle
-    if (!show_wireframe)
-    {
-        DrawTriangle3D(v1, v2, v3, faceColor);
-    }
-
-    // Draw wireframe
-    DrawLine3D(v1, v2, wireColor);
-    DrawLine3D(v2, v3, wireColor);
-    DrawLine3D(v3, v1, wireColor);
-}
-
-void DebugRenderer::drawNavMeshBounds(const NavigationMesh &navMesh)
-{
-    auto bounds = navMesh.getBounds();
-
-    // Draw wireframe box
-    DrawCubeWires(
-        {(bounds.min.x + bounds.max.x) / 2,
-         (bounds.min.y + bounds.max.y) / 2,
-         (bounds.min.z + bounds.max.z) / 2},
-        bounds.max.x - bounds.min.x,
-        bounds.max.y - bounds.min.y,
-        bounds.max.z - bounds.min.z,
-        YELLOW);
-}
-
-void DebugRenderer::drawCollisionShapes(btDynamicsWorld* dynamicsWorld) {
-    if (!showCollisionShapes) return;
+    if (!showCollisionShapes || !dynamicsWorld) return;
     
     // Debug draw all collision objects
     for (int i = 0; i < dynamicsWorld->getNumCollisionObjects(); i++) {
         btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
+        if (!obj) continue;
+        
         btRigidBody* body = btRigidBody::upcast(obj);
         
         // Get transform
@@ -130,35 +64,38 @@ void DebugRenderer::drawCollisionShapes(btDynamicsWorld* dynamicsWorld) {
         // Draw different shapes based on type
         switch (shape->getShapeType()) {
             case BOX_SHAPE_PROXYTYPE: {
-                btBoxShape* box = static_cast<btBoxShape*>(shape);
-                btVector3 halfExtents = box->getHalfExtentsWithoutMargin();
-                DrawCubeWires(position, halfExtents.x()*2, halfExtents.y()*2, 
-                             halfExtents.z()*2, color);
+                btBoxShape* boxShape = static_cast<btBoxShape*>(shape);
+                btVector3 halfExtents = boxShape->getHalfExtentsWithoutMargin();
+                DrawCubeWires(position, halfExtents.x() * 2, halfExtents.y() * 2, halfExtents.z() * 2, color);
                 break;
             }
             case SPHERE_SHAPE_PROXYTYPE: {
-                btSphereShape* sphere = static_cast<btSphereShape*>(shape);
-                DrawSphereWires(position, sphere->getRadius(), 8, 8, color);
+                btSphereShape* sphereShape = static_cast<btSphereShape*>(shape);
+                float radius = sphereShape->getRadius();
+                DrawSphereWires(position, radius, 8, 8, color);
                 break;
             }
             case CAPSULE_SHAPE_PROXYTYPE: {
-                btCapsuleShape* capsule = static_cast<btCapsuleShape*>(shape);
-                float radius = capsule->getRadius();
-                float halfHeight = capsule->getHalfHeight();
+                btCapsuleShape* capsuleShape = static_cast<btCapsuleShape*>(shape);
+                float radius = capsuleShape->getRadius();
+                float halfHeight = capsuleShape->getHalfHeight();
                 
-                // Draw cylinder for middle section
-                DrawCylinderWires(position, radius, radius, halfHeight*2, 8, color);
+                // Draw capsule as a cylinder with two spheres at ends
+                Vector3 upDir = {0, 1, 0};
+                Vector3 top = {position.x, position.y + halfHeight, position.z};
+                Vector3 bottom = {position.x, position.y - halfHeight, position.z};
                 
-                // Draw spheres for caps
-                Vector3 topPos = {position.x, position.y + halfHeight, position.z};
-                Vector3 bottomPos = {position.x, position.y - halfHeight, position.z};
-                DrawSphereWires(topPos, radius, 8, 8, color);
-                DrawSphereWires(bottomPos, radius, 8, 8, color);
+                DrawSphereWires(top, radius, 8, 8, color);
+                DrawSphereWires(bottom, radius, 8, 8, color);
+                DrawCylinderWires(position, radius, radius, halfHeight * 2, 8, color);
                 break;
             }
-            case TRIANGLE_MESH_SHAPE_PROXYTYPE: {
-                // For triangle mesh shapes, we can't easily visualize all triangles
-                // Just draw a bounding box for now
+            case TRIANGLE_MESH_SHAPE_PROXYTYPE:
+            case SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE: {
+                // Draw bounding box for mesh shape
+                btTriangleMeshShape* meshShape = static_cast<btTriangleMeshShape*>(shape);
+                
+                // Draw bounding box
                 btVector3 aabbMin, aabbMax;
                 shape->getAabb(trans, aabbMin, aabbMax);
                 
@@ -175,12 +112,196 @@ void DebugRenderer::drawCollisionShapes(btDynamicsWorld* dynamicsWorld) {
                 };
                 
                 DrawCubeWires(center, size.x, size.y, size.z, YELLOW);
+                
+                // Draw individual triangles
+                Color triangleColor = {color.r, color.g, color.b, 128};  // Semi-transparent
+                drawTriangleMesh(meshShape, trans, triangleColor);
                 break;
             }
             default:
                 // Default wireframe visualization
                 DrawCubeWires(position, 1.0f, 1.0f, 1.0f, GRAY);
                 break;
+        }
+    }
+}
+
+void DebugRenderer::drawTriangleMesh(btTriangleMeshShape* meshShape, const btTransform& worldTransform, Color wireColor) 
+{
+    if (!meshShape) return;
+    
+    // Work with the btStridingMeshInterface
+    btStridingMeshInterface* meshInterface = nullptr;
+    
+    // Handle different types of triangle mesh shapes
+    if (meshShape->getShapeType() == TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+        // For btBvhTriangleMeshShape
+        btBvhTriangleMeshShape* bvhShape = static_cast<btBvhTriangleMeshShape*>(meshShape);
+        meshInterface = bvhShape->getMeshInterface();
+    } else if (meshShape->getShapeType() == SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+        // For safety, check shape type first and then cast
+        if (meshShape->getShapeType() == SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+            // Use old-style C cast which is more permissive but be careful!
+            btScaledBvhTriangleMeshShape* scaledShape = (btScaledBvhTriangleMeshShape*)meshShape;
+            btBvhTriangleMeshShape* childShape = (btBvhTriangleMeshShape*)scaledShape->getChildShape();
+            if (childShape) {
+                meshInterface = childShape->getMeshInterface();
+            }
+        }
+    }
+    
+    if (!meshInterface) return;
+    
+    // Get triangle mesh data
+    const unsigned char* vertexBase = nullptr;
+    int numVerts = 0;
+    PHY_ScalarType vertexType;
+    int vertexStride = 0;
+    const unsigned char* indexBase = nullptr;
+    int indexStride = 0;
+    int numFaces = 0;
+    PHY_ScalarType indexType;
+    
+    // Use part 0 for simplicity
+    const int subpart = 0;
+    
+    meshInterface->getLockedReadOnlyVertexIndexBase(&vertexBase, numVerts, vertexType, vertexStride, 
+                                                   &indexBase, indexStride, numFaces, indexType, subpart);
+    
+    if (numFaces == 0 || !vertexBase || !indexBase) {
+        // Always use the subpart parameter
+        meshInterface->unLockReadOnlyVertexBase(subpart);
+        return;
+    }
+    
+    // Draw each triangle in the mesh
+    for (int i = 0; i < numFaces; i++) {
+        // Get vertex indices of the triangle
+        int index0, index1, index2;
+        
+        if (indexType == PHY_INTEGER) {
+            // 32-bit indices
+            index0 = ((int*)(indexBase + i * indexStride))[0];
+            index1 = ((int*)(indexBase + i * indexStride))[1];
+            index2 = ((int*)(indexBase + i * indexStride))[2];
+        } else {
+            // 16-bit indices
+            index0 = ((short*)(indexBase + i * indexStride))[0];
+            index1 = ((short*)(indexBase + i * indexStride))[1];
+            index2 = ((short*)(indexBase + i * indexStride))[2];
+        }
+        
+        // Get vertex positions
+        Vector3 v0, v1, v2;
+        
+        if (vertexType == PHY_FLOAT) {
+            // Handle different stride values for float vertices
+            const float* verts = (const float*)(vertexBase);
+            
+            v0 = {
+                verts[index0 * (vertexStride/sizeof(float))],
+                verts[index0 * (vertexStride/sizeof(float)) + 1],
+                verts[index0 * (vertexStride/sizeof(float)) + 2]
+            };
+            
+            v1 = {
+                verts[index1 * (vertexStride/sizeof(float))],
+                verts[index1 * (vertexStride/sizeof(float)) + 1],
+                verts[index1 * (vertexStride/sizeof(float)) + 2]
+            };
+            
+            v2 = {
+                verts[index2 * (vertexStride/sizeof(float))],
+                verts[index2 * (vertexStride/sizeof(float)) + 1],
+                verts[index2 * (vertexStride/sizeof(float)) + 2]
+            };
+        } else if (vertexType == PHY_DOUBLE) {
+            // Handle double precision vertices
+            const double* verts = (const double*)(vertexBase);
+            
+            v0 = {
+                (float)verts[index0 * (vertexStride/sizeof(double))],
+                (float)verts[index0 * (vertexStride/sizeof(double)) + 1],
+                (float)verts[index0 * (vertexStride/sizeof(double)) + 2]
+            };
+            
+            v1 = {
+                (float)verts[index1 * (vertexStride/sizeof(double))],
+                (float)verts[index1 * (vertexStride/sizeof(double)) + 1],
+                (float)verts[index1 * (vertexStride/sizeof(double)) + 2]
+            };
+            
+            v2 = {
+                (float)verts[index2 * (vertexStride/sizeof(double))],
+                (float)verts[index2 * (vertexStride/sizeof(double)) + 1],
+                (float)verts[index2 * (vertexStride/sizeof(double)) + 2]
+            };
+        }
+        
+        // Transform vertices by world transform
+        btVector3 bt_v0(v0.x, v0.y, v0.z);
+        btVector3 bt_v1(v1.x, v1.y, v1.z);
+        btVector3 bt_v2(v2.x, v2.y, v2.z);
+        
+        bt_v0 = worldTransform * bt_v0;
+        bt_v1 = worldTransform * bt_v1;
+        bt_v2 = worldTransform * bt_v2;
+        
+        v0 = { bt_v0.x(), bt_v0.y(), bt_v0.z() };
+        v1 = { bt_v1.x(), bt_v1.y(), bt_v1.z() };
+        v2 = { bt_v2.x(), bt_v2.y(), bt_v2.z() };
+        
+        // Draw the triangle wireframe
+        DrawLine3D(v0, v1, wireColor);
+        DrawLine3D(v1, v2, wireColor);
+        DrawLine3D(v2, v0, wireColor);
+    }
+    
+    // Unlock vertex buffer WITH the subpart parameter
+    meshInterface->unLockReadOnlyVertexBase(subpart);
+}
+
+void DebugRenderer::highlightTriangleAt(const Vector3& position, float radius, Color highlightColor, btDynamicsWorld* world) 
+{
+    if (!world) return;
+    
+    // Cast a ray downward from position
+    btVector3 from(position.x, position.y + 0.1f, position.z);
+    btVector3 to(position.x, position.y - radius, position.z);
+    
+    btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+    
+    // Perform raycast
+    world->rayTest(from, to, rayCallback);
+    
+    if (rayCallback.hasHit()) {
+        // Get the hit object and shape
+        btCollisionObject* hitObject = const_cast<btCollisionObject*>(rayCallback.m_collisionObject);
+        btCollisionShape* hitShape = hitObject->getCollisionShape();
+        
+        // Check if it's a triangle mesh
+        if (hitShape->getShapeType() == TRIANGLE_MESH_SHAPE_PROXYTYPE || 
+            hitShape->getShapeType() == SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+            
+            btTransform hitTransform = hitObject->getWorldTransform();
+            
+            // Draw a circle at the hit point
+            btVector3 hitPoint = rayCallback.m_hitPointWorld;
+            Vector3 hitPos = {hitPoint.x(), hitPoint.y(), hitPoint.z()};
+            
+            // Draw hit point marker
+            DrawSphere(hitPos, 0.1f, highlightColor);
+            
+            // Draw hit normal
+            btVector3 hitNormal = rayCallback.m_hitNormalWorld;
+            Vector3 normal = {hitNormal.x(), hitNormal.y(), hitNormal.z()};
+            Vector3 normalEnd = {
+                hitPos.x + normal.x * 0.5f,
+                hitPos.y + normal.y * 0.5f,
+                hitPos.z + normal.z * 0.5f
+            };
+            
+            DrawLine3D(hitPos, normalEnd, RED);
         }
     }
 }

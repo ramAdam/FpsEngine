@@ -1,5 +1,6 @@
 #pragma once
 #include <btBulletDynamicsCommon.h>
+#include "debug_renderer.h"
 #include <raylib.h>
 #include "input_manager.h"
 
@@ -15,14 +16,15 @@ public:
 	Vector3 getPosition() const;
 	void cleanup();
 
-	bool OnGround();
+	bool OnGround() const;
 
 	const Camera3D &getCamera() const { return camera; }
 	void handleMouseInput(float deltaX, float deltaY);
 	void initCamera(const Vector3 &position);
 
-	void drawDebugCapsule(bool drawRaycast = true);
+	void drawDebugCapsule(bool drawRaycast = true) const;
 	void toggleDebugDraw() { showDebug = !showDebug; }
+	void drawDebugInfo(DebugRenderer* debugRenderer) const;
 
 private:
 	void createPhysicsBody(const Vector3 &position);
@@ -32,8 +34,8 @@ private:
 	void handleMovementInput();
 	void applyMovement(const Vector3 &direction);
 	void handleJump();
-	Vector3 calculateMoveDirection();
-	bool checkGroundRaycast(); // Checks if player is on ground using raycast
+	Vector3 calculateMoveDirection() const;
+	bool checkGroundRaycast(); // Checks if player is 1 ground using raycast
 
 	btRigidBody *physicsBody;
 	btDynamicsWorld *world;
