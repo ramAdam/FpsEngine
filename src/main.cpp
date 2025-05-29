@@ -6,10 +6,10 @@ int main(int argc, char *argv[])
 {
 	auto renderer = std::make_unique<RaylibRenderer>();
 	renderer->init(800, 600, "FPS Engine");
-	renderer->set_camera_speed(0.5f);
+	// renderer->set_camera_speed(0.5f);
 	// renderer->toggle_wireframe();
 
-	std::string mapPath = "../maps/block.obj";
+	std::string mapPath = "../maps/pground_cube.obj";
 
 	if (renderer->load_obj(mapPath.c_str()))
 	{
@@ -18,13 +18,10 @@ int main(int argc, char *argv[])
 
 	while (!WindowShouldClose())
 	{
-		renderer->begin_frame();
+		renderer->processFrame();
 
-		renderer->render_mesh();
-
-		renderer->end_frame();
+		// renderer->render_mesh();
 	}
 
-	renderer->cleanup();
 	return 0;
 }

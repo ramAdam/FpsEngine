@@ -1,8 +1,10 @@
 #pragma once
 #include <btBulletDynamicsCommon.h>
 #include <raylib.h>
+#include "input_manager.h"
 
-class Player {
+class Player
+{
 public:
 	Player();
 	~Player();
@@ -31,12 +33,13 @@ private:
 	void applyMovement(const Vector3 &direction);
 	void handleJump();
 	Vector3 calculateMoveDirection();
+	bool checkGroundRaycast(); // Checks if player is on ground using raycast
 
 	btRigidBody *physicsBody;
 	btDynamicsWorld *world;
 	Camera3D camera;
 
-	float yaw = 0.0f; // Camera rotation around Y axis
+	float yaw = 0.0f;	// Camera rotation around Y axis
 	float pitch = 0.0f; // Camera rotation around X axis
 	const float mouseSensitivity = 0.003f;
 
@@ -57,8 +60,14 @@ private:
 	bool wasOnGround;
 	float jumpCooldown;
 
+	// Added for slope handling
+	Vector3 lastGroundPosition;
+	Vector3 lastGroundNormal;
+
 	bool showDebug = true;
 	static constexpr float DEBUG_CAPSULE_SEGMENTS = 12;
 	static constexpr Color DEBUG_CAPSULE_COLOR = GREEN;
 	static constexpr Color DEBUG_RAYCAST_COLOR = RED;
+
+	float raycastDistance = 1.2f; // Slightly longer than capsule height/2 + small margin
 };

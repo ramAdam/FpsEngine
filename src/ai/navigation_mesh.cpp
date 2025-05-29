@@ -1,47 +1,92 @@
 #include "navigation_mesh.h"
+#include <iostream>
 
 NavigationMesh::NavigationMesh() {}
 
-void NavigationMesh::buildFromMesh(const Model &model, float max_slope_angle) {
+void NavigationMesh::buildFromMesh(const Model &model, float max_slope_angle)
+{
 	vertices.clear();
 	triangles.clear();
 
+	std::cout << "Building navigation mesh...\n";
+
 	// Process each mesh in the model
-	for (int m = 0; m < model.meshCount; m++) {
+	for (int m = 0; m < model.meshCount; m++)
+	{
 		const Mesh &mesh = model.meshes[m];
 		const float *verts = mesh.vertices;
-		const float *normals = mesh.normals;
+
+		if (!verts)
+		{
+			std::cerr << "Mesh " << m << " has no vertices!\n";
+			continue;
+		}
+
+		size_t baseVertex = vertices.size();
 
 		// Convert vertices to our format
-		for (int i = 0; i < mesh.vertexCount * 3; i += 3) {
+		for (int i = 0; i < mesh.vertexCount * 3; i += 3)
+		{
 			vertices.push_back(glm::vec3(verts[i], verts[i + 1], verts[i + 2]));
 		}
 
 		// Process triangles
-		for (int i = 0; i < mesh.triangleCount * 3; i += 3) {
-			int idx1 = mesh.indices[i];
-			int idx2 = mesh.indices[i + 1];
-			int idx3 = mesh.indices[i + 2];
+		if (mesh.indices)
+		{
+			// Indexed mesh
+			for (int i = 0; i < mesh.triangleCount * 3; i += 3)
+			{
+				int idx1 = mesh.indices[i];
+				int idx2 = mesh.indices[i + 1];
+				int idx3 = mesh.indices[i + 2];
 
-			// Check if surface is walkable
-			if (isWalkableSurface(vertices[idx1], vertices[idx2], vertices[idx3], max_slope_angle)) {
-				NavTriangle tri;
-				tri.vertices[0] = idx1;
-				tri.vertices[1] = idx2;
-				tri.vertices[2] = idx3;
-				tri.neighbors[0] = -1;
-				tri.neighbors[1] = -1;
-				tri.neighbors[2] = -1;
-				triangles.push_back(tri);
+				// Check walkable surface
+				if (isWalkableSurface(
+						vertices[baseVertex + idx1],
+						vertices[baseVertex + idx2],
+						vertices[baseVertex + idx3],
+						max_slope_angle))
+				{
+					NavTriangle tri;
+					tri.vertices[0] = baseVertex + idx1;
+					tri.vertices[1] = baseVertex + idx2;
+					tri.vertices[2] = baseVertex + idx3;
+					tri.neighbors[0] = tri.neighbors[1] = tri.neighbors[2] = -1;
+					triangles.push_back(tri);
+				}
+			}
+		}
+		else
+		{
+			// Non-indexed mesh
+			for (int i = 0; i < mesh.vertexCount; i += 3)
+			{
+				if (isWalkableSurface(
+						vertices[baseVertex + i],
+						vertices[baseVertex + i + 1],
+						vertices[baseVertex + i + 2],
+						max_slope_angle))
+				{
+					NavTriangle tri;
+					tri.vertices[0] = baseVertex + i;
+					tri.vertices[1] = baseVertex + i + 1;
+					tri.vertices[2] = baseVertex + i + 2;
+					tri.neighbors[0] = tri.neighbors[1] = tri.neighbors[2] = -1;
+					triangles.push_back(tri);
+				}
 			}
 		}
 	}
+
+	std::cout << "Created " << vertices.size() << " vertices and "
+			  << triangles.size() << " walkable triangles\n";
 
 	// Build neighbor connections after all triangles are processed
 	buildNeighborConnections();
 }
 
-bool NavigationMesh::isWalkableSurface(const glm::vec3 &v1, const glm::vec3 &v2, const glm::vec3 &v3, float max_slope_angle) const {
+bool NavigationMesh::isWalkableSurface(const glm::vec3 &v1, const glm::vec3 &v2, const glm::vec3 &v3, float max_slope_angle) const
+{
 	// Calculate triangle normal
 	glm::vec3 edge1 = v2 - v1;
 	glm::vec3 edge2 = v3 - v1;
@@ -54,11 +99,14 @@ bool NavigationMesh::isWalkableSurface(const glm::vec3 &v1, const glm::vec3 &v2,
 	return angle <= max_slope_angle;
 }
 
-void NavigationMesh::buildNeighborConnections() {
+void NavigationMesh::buildNeighborConnections()
+{
 	// For each triangle
-	for (size_t i = 0; i < triangles.size(); i++) {
+	for (size_t i = 0; i < triangles.size(); i++)
+	{
 		// For each edge of current triangle
-		for (int edge = 0; edge < 3; edge++) {
+		for (int edge = 0; edge < 3; edge++)
+		{
 			if (triangles[i].neighbors[edge] != -1)
 				continue;
 
@@ -66,12 +114,15 @@ void NavigationMesh::buildNeighborConnections() {
 			int v2 = triangles[i].vertices[(edge + 1) % 3];
 
 			// Look for matching edge in other triangles
-			for (size_t j = i + 1; j < triangles.size(); j++) {
-				for (int e = 0; e < 3; e++) {
+			for (size_t j = i + 1; j < triangles.size(); j++)
+			{
+				for (int e = 0; e < 3; e++)
+				{
 					int tv1 = triangles[j].vertices[e];
 					int tv2 = triangles[j].vertices[(e + 1) % 3];
 
-					if ((v1 == tv2 && v2 == tv1) || (v1 == tv1 && v2 == tv2)) {
+					if ((v1 == tv2 && v2 == tv1) || (v1 == tv1 && v2 == tv2))
+					{
 						triangles[i].neighbors[edge] = j;
 						triangles[j].neighbors[e] = i;
 						break;
@@ -82,30 +133,34 @@ void NavigationMesh::buildNeighborConnections() {
 	}
 }
 
-int NavigationMesh::find_nearest_triangle(const glm::vec3 &point) const {
-	int nearest = -1;
-	float nearest_dist = FLT_MAX;
+int NavigationMesh::findNearestTriangle(const glm::vec3 &point) const
+{
+	float nearestDist = std::numeric_limits<float>::max();
+	int nearestTri = -1;
 
-	for (size_t i = 0; i < triangles.size(); i++) {
-		// Calculate triangle center
-		glm::vec3 center = (vertices[triangles[i].vertices[0]] +
-								   vertices[triangles[i].vertices[1]] +
-								   vertices[triangles[i].vertices[2]]) /
-						   3.0f;
+	for (size_t i = 0; i < triangles.size(); ++i)
+	{
+		const auto &tri = triangles[i];
+		glm::vec3 center = (vertices[triangles[i].vertices[0]] + vertices[triangles[i].vertices[1]] + vertices[triangles[i].vertices[2]]) / 3.0f;
 
-		float dist = glm::distance(center, point);
-		if (dist < nearest_dist) {
-			// Check if point is inside or above/below triangle
-			if (isPointInTriangle(point, triangles[i])) {
-				nearest = i;
-				nearest_dist = dist;
+		float dist = glm::distance(point, center);
+		if (dist < nearestDist)
+		{
+			// Check if point is above triangle and within reasonable height
+			float height = point.y - center.y;
+			if (height >= -1.0f && height <= 2.0f)
+			{
+				nearestDist = dist;
+				nearestTri = i;
 			}
 		}
 	}
-	return nearest;
+
+	return nearestTri;
 }
 
-bool NavigationMesh::isPointInTriangle(const glm::vec3 &p, const NavTriangle &triangle) const {
+bool NavigationMesh::isPointInTriangle(const glm::vec3 &p, const NavTriangle &triangle) const
+{
 	const glm::vec3 &a = vertices[triangle.vertices[0]];
 	const glm::vec3 &b = vertices[triangle.vertices[1]];
 	const glm::vec3 &c = vertices[triangle.vertices[2]];

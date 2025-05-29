@@ -5,48 +5,65 @@
 #include "player.h"
 #include "raylib.h"
 #include "renderer_interface.h"
-#include <include/bsp/bsp.h>
+#include <glm/glm.hpp>
+
+// Forward declarations
+class CameraManager;
+class ResourceManager;
+class DebugRenderer; // Removed InputManager forward declaration
+class NavigationMesh;
 
 class RaylibRenderer : public RendererInterface
 {
 private:
-	std::unique_ptr<BSPTree> bsp_tree;
-	Model model;
-	Camera3D camera;
-	Player player;
-	Vector3 player_start;
-	int cameraMode = CAMERA_FIRST_PERSON;
-	float cameraSpeed = 0.5f;
-	bool show_grid = true;
-	bool show_wireframe = false;
-	bool show_axes = true;
-	float grid_spacing = 1.0f;
-	int grid_slices = 10;
-	bool mouse_locked = false;
-	bool model_loaded;
-	void handle_camera_input(); // Add this method declaration
-	float player_radius = 1.0f; // Collision sphere radius
-	PhysicsManager physics;
+	std::unique_ptr<CameraManager> cameraManager;
+	std::unique_ptr<ResourceManager> resourceManager;
+	std::unique_ptr<DebugRenderer> debugRenderer;
 
-	// Add this method declaration
-	void draw_polygon(const Polygon &poly, Color color);
-	void draw_polygons(const std::vector<Polygon> &polys, Color color);
+	PhysicsManager physics;
+	Player player;
+
+	// Add nav mesh components
+	std::unique_ptr<NavigationMesh> navMesh;
+	bool showNavMeshDebug = false;
+	bool showPathfindingTests = false;
+
+	// Test points for pathfinding
+	struct PathTest
+	{
+		glm::vec3 start;
+		glm::vec3 end;
+		std::vector<glm::vec3> currentPath;
+	};
+	std::vector<PathTest> pathTests;
+
+	void handleInput();
+	void update(float deltaTime);
+	void renderScene();
+
+	bool showPathDebug = false;
+	void drawNavMeshDebug();
 
 public:
+	RaylibRenderer();
+	virtual ~RaylibRenderer() override; // Make destructor virtual and override
+
+	// Core functionality
 	void init(int width, int height, const char *title) override;
-	void begin_frame() override;
-	void end_frame() override;
+	void processFrame() override;
 	void cleanup() override;
 	void render_mesh() override;
-	void set_camera_speed(float speed) { cameraSpeed = speed; };
-	void set_camera_mode(int mode) { cameraMode = mode; };
-	void toggle_grid() { show_grid = !show_grid; }
-	void toggle_wireframe() { show_wireframe = !show_wireframe; }
-	void set_grid_spacing(float spacing) { grid_spacing = spacing; }
-
-	void toggle_mouse_lock();
 	bool load_obj(const char *filename);
-	void set_player_start(const Vector3 &position); // New method to set player start position
 
-	void set_player_radius(float radius) { player_radius = radius; }
+	// Accessors
+	CameraManager &getCameraManager() { return *cameraManager; }
+	ResourceManager &getResourceManager() { return *resourceManager; }
+	DebugRenderer &getDebugRenderer() { return *debugRenderer; }
+
+	void toggleNavMeshDebug() { showNavMeshDebug = !showNavMeshDebug; }
+	void togglePathfindingTests() { showPathfindingTests = !showPathfindingTests; }
+	void addPathTest(const glm::vec3 &start, const glm::vec3 &end);
+	void updatePathTests();
+	void togglePathDebug() { showPathDebug = !showPathDebug; }
+	void drawDebugPaths();
 };
