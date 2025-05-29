@@ -124,13 +124,12 @@ void Player::update(float deltaTime)
 	if (justStopped) {
 		std::cout << "HARD STOP ACTIVATED!" << std::endl;
 		
-		if (onGround) {
-			// Immediate complete stop on button release when on ground
-			btVector3 vel = physicsBody->getLinearVelocity();
-			vel.setX(0);
-			vel.setZ(0);
-			physicsBody->setLinearVelocity(vel);
-		}
+		// Remove the onGround check to ensure we always stop immediately
+		// Apply immediate stop regardless of ground state
+		btVector3 vel = physicsBody->getLinearVelocity();
+		vel.setX(0);
+		vel.setZ(0);
+		physicsBody->setLinearVelocity(vel);
 	}
 	
 	// Only apply movement code if we have input
@@ -182,14 +181,14 @@ void Player::update(float deltaTime)
 			float speed = sqrt(vel.x()*vel.x() + vel.z()*vel.z());
 			
 			// Apply strong deceleration or immediate stop
-			if (speed < 1.0f) {
+			if (speed < 0.5f) {  // Reduce this threshold from 1.0f to 0.5f for quicker stopping
 				// Below threshold, stop completely
 				vel.setX(0);
 				vel.setZ(0);
 			} else {
 				// Apply very strong friction (much stronger than before)
-				vel.setX(vel.x() * 0.5f);  // Was 0.75f - make more aggressive
-				vel.setZ(vel.z() * 0.5f);
+				vel.setX(vel.x() * 0.2f);  // Was 0.5f - make even more aggressive
+				vel.setZ(vel.z() * 0.2f);
 			}
 			physicsBody->setLinearVelocity(vel);
 		}
