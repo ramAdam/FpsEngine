@@ -92,3 +92,95 @@ void DebugRenderer::drawNavMeshBounds(const NavigationMesh &navMesh)
         bounds.max.z - bounds.min.z,
         YELLOW);
 }
+
+void DebugRenderer::drawCollisionShapes(btDynamicsWorld* dynamicsWorld) {
+    if (!showCollisionShapes) return;
+    
+    // Debug draw all collision objects
+    for (int i = 0; i < dynamicsWorld->getNumCollisionObjects(); i++) {
+        btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
+        btRigidBody* body = btRigidBody::upcast(obj);
+        
+        // Get transform
+        btTransform trans;
+        if (body && body->getMotionState()) {
+            body->getMotionState()->getWorldTransform(trans);
+        } else {
+            trans = obj->getWorldTransform();
+        }
+        
+        // Draw shape based on type
+        btCollisionShape* shape = obj->getCollisionShape();
+        if (!shape) continue;
+        
+        // Set color based on object type
+        Color color;
+        if (obj->getCollisionFlags() & btCollisionObject::CF_STATIC_OBJECT) {
+            color = GREEN;  // Static objects in green
+        } else if (obj->getCollisionFlags() & btCollisionObject::CF_KINEMATIC_OBJECT) {
+            color = BLUE;   // Kinematic objects in blue
+        } else {
+            color = RED;    // Dynamic objects in red
+        }
+        
+        // Get object position
+        btVector3 pos = trans.getOrigin();
+        Vector3 position = {pos.x(), pos.y(), pos.z()};
+        
+        // Draw different shapes based on type
+        switch (shape->getShapeType()) {
+            case BOX_SHAPE_PROXYTYPE: {
+                btBoxShape* box = static_cast<btBoxShape*>(shape);
+                btVector3 halfExtents = box->getHalfExtentsWithoutMargin();
+                DrawCubeWires(position, halfExtents.x()*2, halfExtents.y()*2, 
+                             halfExtents.z()*2, color);
+                break;
+            }
+            case SPHERE_SHAPE_PROXYTYPE: {
+                btSphereShape* sphere = static_cast<btSphereShape*>(shape);
+                DrawSphereWires(position, sphere->getRadius(), 8, 8, color);
+                break;
+            }
+            case CAPSULE_SHAPE_PROXYTYPE: {
+                btCapsuleShape* capsule = static_cast<btCapsuleShape*>(shape);
+                float radius = capsule->getRadius();
+                float halfHeight = capsule->getHalfHeight();
+                
+                // Draw cylinder for middle section
+                DrawCylinderWires(position, radius, radius, halfHeight*2, 8, color);
+                
+                // Draw spheres for caps
+                Vector3 topPos = {position.x, position.y + halfHeight, position.z};
+                Vector3 bottomPos = {position.x, position.y - halfHeight, position.z};
+                DrawSphereWires(topPos, radius, 8, 8, color);
+                DrawSphereWires(bottomPos, radius, 8, 8, color);
+                break;
+            }
+            case TRIANGLE_MESH_SHAPE_PROXYTYPE: {
+                // For triangle mesh shapes, we can't easily visualize all triangles
+                // Just draw a bounding box for now
+                btVector3 aabbMin, aabbMax;
+                shape->getAabb(trans, aabbMin, aabbMax);
+                
+                Vector3 center = {
+                    (aabbMin.x() + aabbMax.x()) * 0.5f,
+                    (aabbMin.y() + aabbMax.y()) * 0.5f,
+                    (aabbMin.z() + aabbMax.z()) * 0.5f
+                };
+                
+                Vector3 size = {
+                    aabbMax.x() - aabbMin.x(),
+                    aabbMax.y() - aabbMin.y(),
+                    aabbMax.z() - aabbMin.z()
+                };
+                
+                DrawCubeWires(center, size.x, size.y, size.z, YELLOW);
+                break;
+            }
+            default:
+                // Default wireframe visualization
+                DrawCubeWires(position, 1.0f, 1.0f, 1.0f, GRAY);
+                break;
+        }
+    }
+}

@@ -62,6 +62,7 @@ void RaylibRenderer::handleInput()
         std::cout << "Toggling debug" << std::endl;
         debugRenderer->toggleGrid();
         debugRenderer->toggleNavMesh();
+        debugRenderer->toggleCollisionShapes(); // Add this line
     }
 
     // Mouse lock toggle
@@ -102,15 +103,25 @@ void RaylibRenderer::renderScene()
 
     render_mesh();
 
-    // Simplified debug rendering
+    // Debug visualizations
     if (debugRenderer->isNavMeshVisible() && navMesh)
     {
         debugRenderer->drawNavMesh(*navMesh);
     }
 
+    // Add collision shape visualization
+    debugRenderer->drawCollisionShapes(physics.getDynamicsWorld());
+
     EndMode3D();
     DrawFPS(10, 10);
     DrawText("Press c to toggle camera mode", 10, 30, 10, WHITE);
+
+    // Add debug toggle information
+    if (debugRenderer->isNavMeshVisible() || debugRenderer->isCollisionDebugVisible())
+    {
+        DrawText("Debug visualization ON", 10, 50, 10, GREEN);
+    }
+
     EndDrawing();
 }
 

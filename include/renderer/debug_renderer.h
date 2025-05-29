@@ -3,6 +3,8 @@
 #include "bsp.h"
 #include "glm/glm.hpp"
 
+#include <bullet/btBulletDynamicsCommon.h>
+
 class NavigationMesh;
 struct NavTriangle; // Add this forward declaration
 
@@ -13,6 +15,7 @@ private:
     bool show_wireframe{false};
     bool show_axes{true};
     bool show_nav_mesh{false};
+    bool showCollisionShapes = false;
     float grid_spacing{1.0f};
     int grid_slices{10};
 
@@ -30,6 +33,9 @@ public:
     void toggleGrid() { show_grid = !show_grid; }
     void toggleWireframe() { show_wireframe = !show_wireframe; }
     void toggleNavMesh() { show_nav_mesh = !show_nav_mesh; }
+    void toggleCollisionShapes() { showCollisionShapes = !showCollisionShapes; }
     bool isNavMeshVisible() const { return show_nav_mesh; }
+    bool isCollisionDebugVisible() const { return showCollisionShapes; }
     void setGridSpacing(float spacing) { grid_spacing = spacing; }
+    void drawCollisionShapes(btDynamicsWorld* dynamicsWorld);
 };
