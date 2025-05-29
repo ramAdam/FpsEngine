@@ -50,8 +50,11 @@ void PhysicsManager::cleanup()
 	// Clean up static bodies
 	for (auto body : staticBodies)
 	{
-		delete body->getMotionState();
-		delete body;
+		if (body) {
+			dynamicsWorld->removeRigidBody(body);
+			delete body->getMotionState();
+			delete body;
+		}
 	}
 	staticBodies.clear();
 
@@ -61,6 +64,13 @@ void PhysicsManager::cleanup()
 		delete shape;
 	}
 	collisionShapes.clear();
+	
+	// Clean up collision meshes
+	for (auto mesh : collisionMeshes)
+	{
+		delete mesh;
+	}
+	collisionMeshes.clear();
 
 	// Clean up ground body
 	if (groundBody)
@@ -75,39 +85,59 @@ void PhysicsManager::cleanup()
 
 void PhysicsManager::createCollisionFromModel(const Model &model)
 {
-	// Create a simple box collision shape based on model bounds
-	BoundingBox bounds = GetMeshBoundingBox(model.meshes[0]);
+	// Create a triangle mesh for the entire model
+	btTriangleMesh *triangleMesh = new btTriangleMesh();
 
-	// Calculate box dimensions
-	btVector3 boxExtents(
-		(bounds.max.x - bounds.min.x) * 0.5f,
-		(bounds.max.y - bounds.min.y) * 0.5f,
-		(bounds.max.z - bounds.min.z) * 0.5f);
+	// Process all meshes in the model
+	for (int m = 0; m < model.meshCount; m++)
+	{
+		// Skip empty meshes
+		if (model.meshes[m].vertexCount == 0 || model.meshes[m].triangleCount == 0)
+			continue;
 
-	// Create box shape
-	btBoxShape *boxShape = new btBoxShape(boxExtents);
+		// Get vertices and indices
+		float *vertices = model.meshes[m].vertices;
+		unsigned short *indices = model.meshes[m].indices;
 
-	// Calculate center position
-	btVector3 position(
-		(bounds.max.x + bounds.min.x) * 0.5f,
-		(bounds.max.y + bounds.min.y) * 0.5f,
-		(bounds.max.z + bounds.min.z) * 0.5f);
+		// Process all triangles
+		for (int i = 0; i < model.meshes[m].triangleCount; i++)
+		{
+			// Get vertex indices
+			int idx1 = indices ? indices[i * 3] : i * 3;
+			int idx2 = indices ? indices[i * 3 + 1] : i * 3 + 1;
+			int idx3 = indices ? indices[i * 3 + 2] : i * 3 + 2;
 
-	// Add to physics world
-	addStaticCollisionShape(boxShape, position);
-	collisionShapes.push_back(boxShape);
-}
+			// Get vertex positions
+			btVector3 v1(vertices[idx1 * 3], vertices[idx1 * 3 + 1], vertices[idx1 * 3 + 2]);
+			btVector3 v2(vertices[idx2 * 3], vertices[idx2 * 3 + 1], vertices[idx2 * 3 + 2]);
+			btVector3 v3(vertices[idx3 * 3], vertices[idx3 * 3 + 1], vertices[idx3 * 3 + 2]);
 
-void PhysicsManager::addStaticCollisionShape(btCollisionShape *shape, const btVector3 &position)
-{
+			// Calculate normal to check if it's facing upward
+			btVector3 edge1 = v2 - v1;
+			btVector3 edge2 = v3 - v1;
+			btVector3 normal = edge1.cross(edge2).normalized();
+
+			// Add triangle to mesh
+			triangleMesh->addTriangle(v1, v2, v3, true);
+		}
+	}
+
+	// Create BVH triangle mesh shape for better performance
+	btBvhTriangleMeshShape *meshShape = new btBvhTriangleMeshShape(triangleMesh, true);
+
+	// Create rigid body
 	btTransform transform;
 	transform.setIdentity();
-	transform.setOrigin(position);
 
 	btDefaultMotionState *motionState = new btDefaultMotionState(transform);
-	btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, motionState, shape); // Mass = 0 for static body
+	btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, motionState, meshShape);
 	btRigidBody *body = new btRigidBody(rbInfo);
 
+	// Add to world
 	dynamicsWorld->addRigidBody(body);
+
+	// Store for cleanup
+	collisionShapes.push_back(meshShape);
+	collisionMeshes.push_back(triangleMesh);
 	staticBodies.push_back(body);
 }
