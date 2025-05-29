@@ -61,13 +61,17 @@ private:
 	float jumpCooldown;
 
 	// Added for slope handling
-	Vector3 lastGroundPosition;
 	Vector3 lastGroundNormal;
+
+	// Added variables
+	bool wasMovingLastFrame = false;
+	Vector3 previousMoveDir = {0, 0, 0};
+	Vector3 lastGroundPosition = {0, 0, 0}; 
 
 	bool showDebug = true;
 	static constexpr float DEBUG_CAPSULE_SEGMENTS = 12;
 	static constexpr Color DEBUG_CAPSULE_COLOR = GREEN;
 	static constexpr Color DEBUG_RAYCAST_COLOR = RED;
 
-	float raycastDistance = 1.2f; // Slightly longer than capsule height/2 + small margin
+	float raycastDistance = 1.2f;  // For ground detection
 };

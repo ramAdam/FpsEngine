@@ -2,6 +2,8 @@
 #include <raymath.h>
 #include <iostream>
 
+#define GROUND_DRAG 0.002f  // Was 0.9f
+
 Player::Player() : physicsBody(nullptr),
 				   world(nullptr),
 				   yaw(0.0f),
@@ -61,19 +63,55 @@ void Player::initCamera(const Vector3 &position)
 
 void Player::update(float deltaTime)
 {
-	// Replace inputManager->with InputManager::getInstance().
-	// No need to update InputManager here as it's done in RaylibRenderer
 	handleMovementInput();
 	handleJump();
 
 	Vector3 moveDir = calculateMoveDirection();
-	bool onGround = checkGroundRaycast(); // Update ground state using raycast
+	
+	// Add debugging for wasMovingLastFrame - PUT IT HERE
+	std::cout << "wasMovingLastFrame: " << wasMovingLastFrame << std::endl;
+	
+	// Use your existing OnGround() method instead
+	bool onGround = OnGround();  // This method works better
+	
+	// Debug output
+	std::cout << "hasInput: " << (moveDir.x != 0 || moveDir.z != 0)
+			  << ", onGround: " << onGround 
+			  << ", pos.y: " << getPosition().y << std::endl;
+			  
+	// Enhanced button release detection
+	bool hasMovementInput = (moveDir.x != 0.0f || moveDir.z != 0.0f);
+	bool justStopped = wasMovingLastFrame && !hasMovementInput;
+	
+	// Debug output
+	std::cout << "hasInput: " << hasMovementInput 
+			  << ", justStopped: " << justStopped
+			  << ", onGround: " << onGround << std::endl;
+	
+	// TWO IMPORTANT FIXES:
+	// 1. Make sure we're initialized
+	if (wasMovingLastFrame == false && previousMoveDir.x == 0 && previousMoveDir.z == 0) {
+		wasMovingLastFrame = hasMovementInput;
+	}
+	
+	// 2. Apply a hard stop when buttons are just released
+	if (justStopped) {
+		std::cout << "HARD STOP ACTIVATED!" << std::endl;
+		
+		if (onGround) {
+			// Immediate complete stop on button release when on ground
+			btVector3 vel = physicsBody->getLinearVelocity();
+			vel.setX(0);
+			vel.setZ(0);
+			physicsBody->setLinearVelocity(vel);
+		}
+	}
+	
+	// Only apply movement code if we have input
+	if (hasMovementInput) {
+		// Apply different movement characteristics based on ground state
+		float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
 
-	// Apply different movement characteristics based on ground state
-	float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
-
-	if (moveDir.x != 0 || moveDir.z != 0)
-	{
 		// Calculate target velocity based on movement direction
 		Vector3 targetVelocity = {
 			moveDir.x * currentSpeed,
@@ -81,38 +119,60 @@ void Player::update(float deltaTime)
 			moveDir.z * currentSpeed
 		};
 		
-		// Get current velocity
-		btVector3 currentVel = physicsBody->getLinearVelocity();
-		Vector3 currentVelocity = {currentVel.x(), 0, currentVel.z()};
-		
-		// Interpolate between current and target velocity (smoothing)
-		float smoothFactor = onGround ? 0.15f : 0.05f; // More responsive on ground
-		
-		// Smooth velocity using linear interpolation
-		Vector3 smoothedVelocity = {
-			currentVelocity.x + (targetVelocity.x - currentVelocity.x) * smoothFactor,
-			0,
-			currentVelocity.z + (targetVelocity.z - currentVelocity.z) * smoothFactor
-		};
-		
-		// Apply the smoothed velocity
-		btVector3 newVelocity(
-			smoothedVelocity.x,
-			physicsBody->getLinearVelocity().y(), // Keep y velocity for gravity
-			smoothedVelocity.z
-		);
-		physicsBody->setLinearVelocity(newVelocity);
-	}
-	
-	// Apply ground drag when on ground
-	if (onGround)
-	{
-		btVector3 vel = physicsBody->getLinearVelocity();
-		vel.setX(vel.x() * GROUND_DRAG);
-		vel.setZ(vel.z() * GROUND_DRAG);
-		physicsBody->setLinearVelocity(vel);
+		// On ground, use almost instant response, in air use smoothing
+		if (onGround) {
+			// Direct control on ground - NO smoothing
+			btVector3 newVelocity(
+				targetVelocity.x,
+				physicsBody->getLinearVelocity().y(),
+				targetVelocity.z
+			);
+			physicsBody->setLinearVelocity(newVelocity);
+		} else {
+			// In air, apply more limited control with smoothing
+			btVector3 currentVel = physicsBody->getLinearVelocity();
+			Vector3 currentVelocity = {currentVel.x(), 0, currentVel.z()};
+			
+			// Air control smoothing - gradual changes
+			float airSmoothFactor = 0.15f;
+			Vector3 smoothedVelocity = {
+				currentVelocity.x + (targetVelocity.x - currentVelocity.x) * airSmoothFactor,
+				0,
+				currentVelocity.z + (targetVelocity.z - currentVelocity.z) * airSmoothFactor
+			};
+			
+			btVector3 newVelocity(
+				smoothedVelocity.x,
+				physicsBody->getLinearVelocity().y(),
+				smoothedVelocity.z
+			);
+			physicsBody->setLinearVelocity(newVelocity);
+		}
+	} else if (onGround) {
+		// Add a continuous deceleration for no-input
+		if (!hasMovementInput && onGround) {
+			// Get current velocity
+			btVector3 vel = physicsBody->getLinearVelocity();
+			float speed = sqrt(vel.x()*vel.x() + vel.z()*vel.z());
+			
+			// Apply strong deceleration or immediate stop
+			if (speed < 1.0f) {
+				// Below threshold, stop completely
+				vel.setX(0);
+				vel.setZ(0);
+			} else {
+				// Apply very strong friction (much stronger than before)
+				vel.setX(vel.x() * 0.5f);  // Was 0.75f - make more aggressive
+				vel.setZ(vel.z() * 0.5f);
+			}
+			physicsBody->setLinearVelocity(vel);
+		}
 	}
 
+	// IMPORTANT: Update tracking state at the end
+	wasMovingLastFrame = hasMovementInput;
+	previousMoveDir = moveDir;
+	
 	// Update jump state
 	wasOnGround = onGround;
 	if (jumpCooldown > 0)
@@ -120,6 +180,8 @@ void Player::update(float deltaTime)
 
 	updateCamera();
 }
+
+
 
 void Player::handleMovementInput()
 {
@@ -243,42 +305,52 @@ bool Player::OnGround()
 
 bool Player::checkGroundRaycast()
 {
-	if (!physicsBody || !world) return false;
-	
-	// Get current position
-	btTransform transform = physicsBody->getWorldTransform();
-	btVector3 from = transform.getOrigin();
-	
-	// Cast ray downward
-	btVector3 to = from + btVector3(0, -raycastDistance, 0);
-	
-	// Perform raycast
-	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
-	
-	// Exclude player's own collision object
-	rayCallback.m_collisionFilterGroup = 0xFFFF;
-	rayCallback.m_collisionFilterMask = 0xFFFF & ~(physicsBody->getBroadphaseHandle()->m_collisionFilterGroup);
-	
-	// Perform raycast
-	world->rayTest(from, to, rayCallback);
-	
-	// Check if ray hit something
-	if (rayCallback.hasHit())
-	{
-		// Calculate distance to ground
-		float distance = (rayCallback.m_hitPointWorld - from).length();
-		
-		// Store hit position for slope calculations
-		lastGroundPosition = Vector3{
-			rayCallback.m_hitPointWorld.x(),
-			rayCallback.m_hitPointWorld.y(),
-			rayCallback.m_hitPointWorld.z()
-		};
-		
-		return distance < raycastDistance;
-	}
-	
-	return false;
+    if (!physicsBody || !world) return false;
+    
+    // Get current position (center of capsule)
+    btTransform transform = physicsBody->getWorldTransform();
+    btVector3 center = transform.getOrigin();
+    
+    // Calculate position at bottom of capsule
+    btVector3 from = center - btVector3(0, PLAYER_HEIGHT/2, 0);
+    
+    // Add debug output to see ray origin
+    std::cout << "Ray origin: " << from.y() << std::endl;
+    
+    // Cast ray downward with a small distance
+    float checkDistance = 0.3f;  // Small distance below feet
+    btVector3 to = from - btVector3(0, checkDistance, 0);
+    
+    // Perform raycast
+    btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+    
+    // Exclude player's own collision object
+    rayCallback.m_collisionFilterGroup = btBroadphaseProxy::DefaultFilter;
+    rayCallback.m_collisionFilterMask = btBroadphaseProxy::AllFilter & ~btBroadphaseProxy::CharacterFilter;
+    
+    // Perform raycast
+    world->rayTest(from, to, rayCallback);
+    
+    // Add debug output
+    std::cout << "Ground check: " << (rayCallback.hasHit() ? "HIT" : "MISS") << std::endl;
+    
+    // Check if ray hit something
+    if (rayCallback.hasHit())
+    {
+        // Calculate distance to ground
+        float distance = (rayCallback.m_hitPointWorld - from).length();
+        
+        // Store hit position for slope calculations
+        lastGroundPosition = {
+            rayCallback.m_hitPointWorld.x(),
+            rayCallback.m_hitPointWorld.y(),
+            rayCallback.m_hitPointWorld.z()
+        };
+        
+        return true;  // We're directly testing a short distance, so any hit means ground
+    }
+    
+    return false;
 }
 
 void Player::setPosition(const Vector3 &position)
