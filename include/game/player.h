@@ -3,6 +3,10 @@
 #include "debug_renderer.h"
 #include <raylib.h>
 #include "input_manager.h"
+#include "ground_detector.h"
+#include <memory>
+
+class PhysicsManager;
 
 class Player
 {
@@ -69,6 +73,13 @@ private:
 	bool wasMovingLastFrame = false;
 	Vector3 previousMoveDir = {0, 0, 0};
 	Vector3 lastGroundPosition = {0, 0, 0}; 
+
+	// Ground grace period variables
+	float lastGroundTime = 0.0f;
+	static constexpr float GROUND_GRACE_PERIOD = 0.1f; // 100ms grace period
+
+	// Ground detection
+	std::unique_ptr<GroundDetector> groundDetector;
 
 	bool showDebug = true;
 	static constexpr float DEBUG_CAPSULE_SEGMENTS = 12;

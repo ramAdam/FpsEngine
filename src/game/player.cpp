@@ -1,17 +1,22 @@
 #include "player.h"
 #include <raymath.h>
 #include <iostream>
+#include "physics_manager.h"
+
 
 #define GROUND_DRAG 0.002f  // Was 0.9f
 
-Player::Player() : physicsBody(nullptr),
-				   world(nullptr),
-				   yaw(0.0f),
-				   pitch(0.0f),
-				   mouseSensitivity(0.003f),
-				   isJumping(false),
-				   wasOnGround(false),
-				   jumpCooldown(0)
+Player::Player() : 
+    physicsBody(nullptr),
+    world(nullptr),
+    groundDetector(nullptr),  // Make sure this is here
+    yaw(0.0f),
+    pitch(0.0f),
+    mouseSensitivity(0.003f),
+    isJumping(false),
+    wasOnGround(false),
+    jumpCooldown(0),
+    lastGroundTime(0.0f)  // Initialize lastGroundTime
 {
 	initCamera({0, 0, 0});
 }
@@ -25,12 +30,22 @@ void Player::init(btDynamicsWorld *dynamicsWorld, const Vector3 &startPos)
 {
 	world = dynamicsWorld;
 	createPhysicsBody(startPos);
-	// Remove InputManager initialization
+	
+	// Initialize ground detector after physics body is created
+	groundDetector = std::make_unique<GroundDetector>(
+		PhysicsManager::getInstance(), 
+		physicsBody, 
+		PLAYER_RADIUS * 0.9f);
+		
+	// Set grace period
+	groundDetector->setGracePeriod(GROUND_GRACE_PERIOD);
 }
 
 void Player::createPhysicsBody(const Vector3 &position)
 {
-	btCollisionShape *capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
+	btCapsuleShape* capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
+	capsule->setMargin(0.05f);  // Add collision margin
+
 	btTransform transform;
 	transform.setIdentity();
 	transform.setOrigin(btVector3(position.x, position.y + PLAYER_HEIGHT / 2, position.z));
@@ -46,7 +61,7 @@ void Player::createPhysicsBody(const Vector3 &position)
 	physicsBody->setActivationState(DISABLE_DEACTIVATION);
 
 	// Add these parameters for smoother collision
-	physicsBody->setContactProcessingThreshold(0.025f);
+	physicsBody->setContactProcessingThreshold(0.05f);  // Increased from 0.025f
 	physicsBody->setFriction(0.1f);  // Lower friction for smoother sliding
 
 	world->addRigidBody(physicsBody);
@@ -63,6 +78,17 @@ void Player::initCamera(const Vector3 &position)
 
 void Player::update(float deltaTime)
 {
+	// Update ground detection
+	if (groundDetector && physicsBody) {
+		// Get position at feet
+		btTransform transform = physicsBody->getWorldTransform();
+		btVector3 position = transform.getOrigin();
+		btVector3 feetPosition = position - btVector3(0, PLAYER_HEIGHT/2, 0);
+		
+		// Update ground detector
+		groundDetector->update(feetPosition);
+	}
+	
 	handleMovementInput();
 	handleJump();
 
@@ -178,6 +204,10 @@ void Player::update(float deltaTime)
 	if (jumpCooldown > 0)
 		jumpCooldown -= deltaTime;
 
+	// Update ground timer
+	if (lastGroundTime > 0)
+		lastGroundTime -= deltaTime;
+	
 	updateCamera();
 }
 
@@ -277,30 +307,7 @@ void Player::updateCamera()
 
 bool Player::OnGround() const
 {
-	if (!physicsBody || !world)
-		return false;
-
-	btTransform transform = physicsBody->getWorldTransform();
-	btVector3 from = transform.getOrigin();
-
-	// Cast ray from center of capsule to slightly below feet
-	// Account for capsule height and add a small threshold
-	float rayLength = PLAYER_HEIGHT / 2 + 0.5f; // Slightly longer than half height
-	btVector3 to = from - btVector3(0, rayLength, 0);
-
-	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
-
-	// Ignore collisions with the player's own collision shape
-	rayCallback.m_collisionFilterMask = ~rayCallback.m_collisionFilterGroup;
-
-	world->rayTest(from, to, rayCallback);
-
-	// For debugging
-	// if (rayCallback.hasHit()) {
-	// 	std::cout << "Ground detected! Distance: " << rayCallback.m_closestHitFraction * rayLength << std::endl;
-	// }
-
-	return rayCallback.hasHit();
+    return groundDetector && groundDetector->isOnGround();
 }
 
 bool Player::checkGroundRaycast()
@@ -463,5 +470,10 @@ void Player::drawDebugInfo(DebugRenderer* debugRenderer) const {
             start.z + moveDir.z * 1.0f
         };
         DrawLine3D(start, moveEnd, BLUE);
+    }
+    
+    // Add ground detector debug visualization
+    if (groundDetector) {
+        groundDetector->drawDebug(debugRenderer);
     }
 }

@@ -25,7 +25,8 @@ RaylibRenderer::~RaylibRenderer()
     if (IsWindowReady())
     {
         player.cleanup();
-        physics.cleanup();
+        // Instead of physics.cleanup() directly, use the singleton:
+        PhysicsManager::getInstance().cleanup();
         resourceManager->unloadAll();
         CloseWindow();
     }
@@ -36,12 +37,14 @@ void RaylibRenderer::init(int width, int height, const char *title)
     InitWindow(width, height, title);
     SetTargetFPS(60);
 
+    // Initialize physics
+    PhysicsManager::getInstance().init();
+    
     // Initialize input and lock mouse by default for FPS controls
     auto &input = InputManager::getInstance();
     input.toggleMouseLock();
 
     cameraManager->init({0.0f, 20.0f, 10.0f});
-    physics.init();
     player.init(physics.getDynamicsWorld(), cameraManager->getCamera().position);
 }
 
