@@ -54,7 +54,7 @@ private:
 	static constexpr float PLAYER_MASS = 1.0f;
 
 	// Movement constants
-	static constexpr float MOVE_SPEED = 10.0f;
+	static constexpr float MOVE_SPEED = 30.0f;  // Increased from 10.0f
 	static constexpr float JUMP_FORCE = 5.0f;
 	static constexpr float AIR_CONTROL = 0.3f; // Movement control in air
 	static constexpr float GROUND_DRAG = 0.9f; // Ground movement dampening

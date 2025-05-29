@@ -63,6 +63,7 @@ void Player::createPhysicsBody(const Vector3 &position)
 	// Add these parameters for smoother collision
 	physicsBody->setContactProcessingThreshold(0.05f);  // Increased from 0.025f
 	physicsBody->setFriction(0.1f);  // Lower friction for smoother sliding
+	physicsBody->setDamping(0.4f, 0.0f);  // Add linear damping but keep angular damping at 0
 
 	world->addRigidBody(physicsBody);
 }
