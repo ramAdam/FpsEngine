@@ -27,6 +27,8 @@ GroundDetector::~GroundDetector()
 
 void GroundDetector::update(const btVector3& feetPosition)
 {
+    std::cout << "GroundDetector update called with feet at y=" << feetPosition.y() << std::endl;
+
     // Update ghost sensor position
     if (groundSensor) {  // No need to check references - they're always valid
         // Position slightly below feet for better detection
@@ -61,6 +63,9 @@ void GroundDetector::update(const btVector3& feetPosition)
             onGround = false;
         }
     }
+
+    // Debug output at the end
+    std::cout << "Ground detector final result: " << (onGround ? "ON GROUND" : "IN AIR") << std::endl;
 }
 
 bool GroundDetector::isOnGround() const

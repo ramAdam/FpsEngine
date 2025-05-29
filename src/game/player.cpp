@@ -90,30 +90,35 @@ void Player::update(float deltaTime)
 		groundDetector->update(feetPosition);
 	}
 	
+	// Add this to your Player::update method, right after updating the ground detector
+	if (groundDetector) {
+		std::cout << "Ground detector status: " << (groundDetector->isOnGround() ? "ON GROUND" : "IN AIR") << std::endl;
+	}
+	
 	handleMovementInput();
 	handleJump();
 
 	Vector3 moveDir = calculateMoveDirection();
 	
 	// Add debugging for wasMovingLastFrame - PUT IT HERE
-	std::cout << "wasMovingLastFrame: " << wasMovingLastFrame << std::endl;
+	// std::cout << "wasMovingLastFrame: " << wasMovingLastFrame << std::endl;
 	
 	// Use your existing OnGround() method instead
 	bool onGround = OnGround();  // This method works better
 	
-	// Debug output
-	std::cout << "hasInput: " << (moveDir.x != 0 || moveDir.z != 0)
-			  << ", onGround: " << onGround 
-			  << ", pos.y: " << getPosition().y << std::endl;
+	// // Debug output
+	// std::cout << "hasInput: " << (moveDir.x != 0 || moveDir.z != 0)
+	// 		  << ", onGround: " << onGround 
+	// 		  << ", pos.y: " << getPosition().y << std::endl;
 			  
 	// Enhanced button release detection
 	bool hasMovementInput = (moveDir.x != 0.0f || moveDir.z != 0.0f);
 	bool justStopped = wasMovingLastFrame && !hasMovementInput;
 	
-	// Debug output
-	std::cout << "hasInput: " << hasMovementInput 
-			  << ", justStopped: " << justStopped
-			  << ", onGround: " << onGround << std::endl;
+	// // Debug output
+	// std::cout << "hasInput: " << hasMovementInput 
+	// 		  << ", justStopped: " << justStopped
+	// 		  << ", onGround: " << onGround << std::endl;
 	
 	// TWO IMPORTANT FIXES:
 	// 1. Make sure we're initialized
@@ -230,20 +235,37 @@ void Player::handleMovementInput()
 
 void Player::handleJump()
 {
-	if (!physicsBody)
-		return;
+    if (!physicsBody)
+        return;
 
-	bool onGround = OnGround();
-	if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP) && onGround && jumpCooldown <= 0)
-	{
-		physicsBody->setLinearVelocity(btVector3(
-			physicsBody->getLinearVelocity().x(),
-			0, // Reset vertical velocity before jump
-			physicsBody->getLinearVelocity().z()));
-		physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
-		isJumping = true;
-		jumpCooldown = 0.1f; // Prevent jump spam
-	}
+    bool onGround = OnGround();  // Using your ground detector
+
+    // Debug jump state
+    if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP)) {
+        std::cout << "Jump pressed! onGround: " << onGround << ", cooldown: " << jumpCooldown << std::endl;
+    }
+
+    // Check if we can jump
+    if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP) && 
+        // onGround && 
+        jumpCooldown <= 0)
+    {
+        std::cout << "JUMPING!" << std::endl;
+        
+        // Get current velocity
+        btVector3 currentVel = physicsBody->getLinearVelocity();
+        
+        // Set a strong upward impulse
+        btVector3 jumpImpulse(currentVel.x(), JUMP_FORCE, currentVel.z());
+        physicsBody->setLinearVelocity(jumpImpulse);
+        
+        // Alternative approach using impulse if the above doesn't work well:
+        // physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
+        
+        isJumping = true;
+        jumpCooldown = 0.2f; // Prevent jump spam
+        lastGroundTime = 0;  // Reset ground time when jumping
+    }
 }
 
 Vector3 Player::calculateMoveDirection() const
