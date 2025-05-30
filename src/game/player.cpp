@@ -1,15 +1,22 @@
 #include "player.h"
 #include <raymath.h>
 #include <iostream>
+#include "physics_manager.h"
 
-Player::Player() : physicsBody(nullptr),
-				   world(nullptr),
-				   yaw(0.0f),
-				   pitch(0.0f),
-				   mouseSensitivity(0.003f),
-				   isJumping(false),
-				   wasOnGround(false),
-				   jumpCooldown(0)
+
+#define GROUND_DRAG 0.002f  // Was 0.9f
+
+Player::Player() : 
+    physicsBody(nullptr),
+    world(nullptr),
+    groundDetector(nullptr),  // Make sure this is here
+    yaw(0.0f),
+    pitch(0.0f),
+    mouseSensitivity(0.003f),
+    isJumping(false),
+    wasOnGround(false),
+    jumpCooldown(0),
+    lastGroundTime(0.0f)  // Initialize lastGroundTime
 {
 	initCamera({0, 0, 0});
 }
@@ -23,12 +30,22 @@ void Player::init(btDynamicsWorld *dynamicsWorld, const Vector3 &startPos)
 {
 	world = dynamicsWorld;
 	createPhysicsBody(startPos);
-	// Remove InputManager initialization
+	
+	// Initialize ground detector after physics body is created
+	groundDetector = std::make_unique<GroundDetector>(
+		PhysicsManager::getInstance(), 
+		physicsBody, 
+		PLAYER_RADIUS * 0.9f);
+		
+	// Set grace period
+	groundDetector->setGracePeriod(GROUND_GRACE_PERIOD);
 }
 
 void Player::createPhysicsBody(const Vector3 &position)
 {
-	btCollisionShape *capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
+	btCapsuleShape* capsule = new btCapsuleShape(PLAYER_RADIUS, PLAYER_HEIGHT);
+	capsule->setMargin(0.05f);  // Add collision margin
+
 	btTransform transform;
 	transform.setIdentity();
 	transform.setOrigin(btVector3(position.x, position.y + PLAYER_HEIGHT / 2, position.z));
@@ -44,8 +61,9 @@ void Player::createPhysicsBody(const Vector3 &position)
 	physicsBody->setActivationState(DISABLE_DEACTIVATION);
 
 	// Add these parameters for smoother collision
-	physicsBody->setContactProcessingThreshold(0.025f);
+	physicsBody->setContactProcessingThreshold(0.05f);  // Increased from 0.025f
 	physicsBody->setFriction(0.1f);  // Lower friction for smoother sliding
+	physicsBody->setDamping(0.4f, 0.0f);  // Add linear damping but keep angular damping at 0
 
 	world->addRigidBody(physicsBody);
 }
@@ -61,19 +79,70 @@ void Player::initCamera(const Vector3 &position)
 
 void Player::update(float deltaTime)
 {
-	// Replace inputManager->with InputManager::getInstance().
-	// No need to update InputManager here as it's done in RaylibRenderer
+	// Update ground detection
+	if (groundDetector && physicsBody) {
+		// Get position at feet
+		btTransform transform = physicsBody->getWorldTransform();
+		btVector3 position = transform.getOrigin();
+		btVector3 feetPosition = position - btVector3(0, PLAYER_HEIGHT/2, 0);
+		
+		// Update ground detector
+		groundDetector->update(feetPosition);
+	}
+	
+	// Add this to your Player::update method, right after updating the ground detector
+	if (groundDetector) {
+		std::cout << "Ground detector status: " << (groundDetector->isOnGround() ? "ON GROUND" : "IN AIR") << std::endl;
+	}
+	
 	handleMovementInput();
 	handleJump();
 
 	Vector3 moveDir = calculateMoveDirection();
-	bool onGround = checkGroundRaycast(); // Update ground state using raycast
+	
+	// Add debugging for wasMovingLastFrame - PUT IT HERE
+	// std::cout << "wasMovingLastFrame: " << wasMovingLastFrame << std::endl;
+	
+	// Use your existing OnGround() method instead
+	bool onGround = OnGround();  // This method works better
+	
+	// // Debug output
+	// std::cout << "hasInput: " << (moveDir.x != 0 || moveDir.z != 0)
+	// 		  << ", onGround: " << onGround 
+	// 		  << ", pos.y: " << getPosition().y << std::endl;
+			  
+	// Enhanced button release detection
+	bool hasMovementInput = (moveDir.x != 0.0f || moveDir.z != 0.0f);
+	bool justStopped = wasMovingLastFrame && !hasMovementInput;
+	
+	// // Debug output
+	// std::cout << "hasInput: " << hasMovementInput 
+	// 		  << ", justStopped: " << justStopped
+	// 		  << ", onGround: " << onGround << std::endl;
+	
+	// TWO IMPORTANT FIXES:
+	// 1. Make sure we're initialized
+	if (wasMovingLastFrame == false && previousMoveDir.x == 0 && previousMoveDir.z == 0) {
+		wasMovingLastFrame = hasMovementInput;
+	}
+	
+	// 2. Apply a hard stop when buttons are just released
+	if (justStopped) {
+		std::cout << "HARD STOP ACTIVATED!" << std::endl;
+		
+		// Remove the onGround check to ensure we always stop immediately
+		// Apply immediate stop regardless of ground state
+		btVector3 vel = physicsBody->getLinearVelocity();
+		vel.setX(0);
+		vel.setZ(0);
+		physicsBody->setLinearVelocity(vel);
+	}
+	
+	// Only apply movement code if we have input
+	if (hasMovementInput) {
+		// Apply different movement characteristics based on ground state
+		float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
 
-	// Apply different movement characteristics based on ground state
-	float currentSpeed = onGround ? MOVE_SPEED : (MOVE_SPEED * AIR_CONTROL);
-
-	if (moveDir.x != 0 || moveDir.z != 0)
-	{
 		// Calculate target velocity based on movement direction
 		Vector3 targetVelocity = {
 			moveDir.x * currentSpeed,
@@ -81,45 +150,73 @@ void Player::update(float deltaTime)
 			moveDir.z * currentSpeed
 		};
 		
-		// Get current velocity
-		btVector3 currentVel = physicsBody->getLinearVelocity();
-		Vector3 currentVelocity = {currentVel.x(), 0, currentVel.z()};
-		
-		// Interpolate between current and target velocity (smoothing)
-		float smoothFactor = onGround ? 0.15f : 0.05f; // More responsive on ground
-		
-		// Smooth velocity using linear interpolation
-		Vector3 smoothedVelocity = {
-			currentVelocity.x + (targetVelocity.x - currentVelocity.x) * smoothFactor,
-			0,
-			currentVelocity.z + (targetVelocity.z - currentVelocity.z) * smoothFactor
-		};
-		
-		// Apply the smoothed velocity
-		btVector3 newVelocity(
-			smoothedVelocity.x,
-			physicsBody->getLinearVelocity().y(), // Keep y velocity for gravity
-			smoothedVelocity.z
-		);
-		physicsBody->setLinearVelocity(newVelocity);
-	}
-	
-	// Apply ground drag when on ground
-	if (onGround)
-	{
-		btVector3 vel = physicsBody->getLinearVelocity();
-		vel.setX(vel.x() * GROUND_DRAG);
-		vel.setZ(vel.z() * GROUND_DRAG);
-		physicsBody->setLinearVelocity(vel);
+		// On ground, use almost instant response, in air use smoothing
+		if (onGround) {
+			// Direct control on ground - NO smoothing
+			btVector3 newVelocity(
+				targetVelocity.x,
+				physicsBody->getLinearVelocity().y(),
+				targetVelocity.z
+			);
+			physicsBody->setLinearVelocity(newVelocity);
+		} else {
+			// In air, apply more limited control with smoothing
+			btVector3 currentVel = physicsBody->getLinearVelocity();
+			Vector3 currentVelocity = {currentVel.x(), 0, currentVel.z()};
+			
+			// Air control smoothing - gradual changes
+			float airSmoothFactor = 0.15f;
+			Vector3 smoothedVelocity = {
+				currentVelocity.x + (targetVelocity.x - currentVelocity.x) * airSmoothFactor,
+				0,
+				currentVelocity.z + (targetVelocity.z - currentVelocity.z) * airSmoothFactor
+			};
+			
+			btVector3 newVelocity(
+				smoothedVelocity.x,
+				physicsBody->getLinearVelocity().y(),
+				smoothedVelocity.z
+			);
+			physicsBody->setLinearVelocity(newVelocity);
+		}
+	} else if (onGround) {
+		// Add a continuous deceleration for no-input
+		if (!hasMovementInput && onGround) {
+			// Get current velocity
+			btVector3 vel = physicsBody->getLinearVelocity();
+			float speed = sqrt(vel.x()*vel.x() + vel.z()*vel.z());
+			
+			// Apply strong deceleration or immediate stop
+			if (speed < 0.5f) {  // Reduce this threshold from 1.0f to 0.5f for quicker stopping
+				// Below threshold, stop completely
+				vel.setX(0);
+				vel.setZ(0);
+			} else {
+				// Apply very strong friction (much stronger than before)
+				vel.setX(vel.x() * 0.2f);  // Was 0.5f - make even more aggressive
+				vel.setZ(vel.z() * 0.2f);
+			}
+			physicsBody->setLinearVelocity(vel);
+		}
 	}
 
+	// IMPORTANT: Update tracking state at the end
+	wasMovingLastFrame = hasMovementInput;
+	previousMoveDir = moveDir;
+	
 	// Update jump state
 	wasOnGround = onGround;
 	if (jumpCooldown > 0)
 		jumpCooldown -= deltaTime;
 
+	// Update ground timer
+	if (lastGroundTime > 0)
+		lastGroundTime -= deltaTime;
+	
 	updateCamera();
 }
+
+
 
 void Player::handleMovementInput()
 {
@@ -138,23 +235,40 @@ void Player::handleMovementInput()
 
 void Player::handleJump()
 {
-	if (!physicsBody)
-		return;
+    if (!physicsBody)
+        return;
 
-	bool onGround = OnGround();
-	if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP) && onGround && jumpCooldown <= 0)
-	{
-		physicsBody->setLinearVelocity(btVector3(
-			physicsBody->getLinearVelocity().x(),
-			0, // Reset vertical velocity before jump
-			physicsBody->getLinearVelocity().z()));
-		physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
-		isJumping = true;
-		jumpCooldown = 0.1f; // Prevent jump spam
-	}
+    bool onGround = OnGround();  // Using your ground detector
+
+    // Debug jump state
+    if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP)) {
+        std::cout << "Jump pressed! onGround: " << onGround << ", cooldown: " << jumpCooldown << std::endl;
+    }
+
+    // Check if we can jump
+    if (InputManager::getInstance().isActionJustPressed(InputAction::JUMP) && 
+        // onGround && 
+        jumpCooldown <= 0)
+    {
+        std::cout << "JUMPING!" << std::endl;
+        
+        // Get current velocity
+        btVector3 currentVel = physicsBody->getLinearVelocity();
+        
+        // Set a strong upward impulse
+        btVector3 jumpImpulse(currentVel.x(), JUMP_FORCE, currentVel.z());
+        physicsBody->setLinearVelocity(jumpImpulse);
+        
+        // Alternative approach using impulse if the above doesn't work well:
+        // physicsBody->applyCentralImpulse(btVector3(0, JUMP_FORCE, 0));
+        
+        isJumping = true;
+        jumpCooldown = 0.2f; // Prevent jump spam
+        lastGroundTime = 0;  // Reset ground time when jumping
+    }
 }
 
-Vector3 Player::calculateMoveDirection()
+Vector3 Player::calculateMoveDirection() const
 {
 	if (moveDirection.x == 0 && moveDirection.z == 0)
 	{
@@ -213,72 +327,59 @@ void Player::updateCamera()
 		pos.z + dz};
 }
 
-bool Player::OnGround()
+bool Player::OnGround() const
 {
-	if (!physicsBody || !world)
-		return false;
-
-	btTransform transform = physicsBody->getWorldTransform();
-	btVector3 from = transform.getOrigin();
-
-	// Cast ray from center of capsule to slightly below feet
-	// Account for capsule height and add a small threshold
-	float rayLength = PLAYER_HEIGHT / 2 + 0.5f; // Slightly longer than half height
-	btVector3 to = from - btVector3(0, rayLength, 0);
-
-	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
-
-	// Ignore collisions with the player's own collision shape
-	rayCallback.m_collisionFilterMask = ~rayCallback.m_collisionFilterGroup;
-
-	world->rayTest(from, to, rayCallback);
-
-	// For debugging
-	// if (rayCallback.hasHit()) {
-	// 	std::cout << "Ground detected! Distance: " << rayCallback.m_closestHitFraction * rayLength << std::endl;
-	// }
-
-	return rayCallback.hasHit();
+    return groundDetector && groundDetector->isOnGround();
 }
 
 bool Player::checkGroundRaycast()
 {
-	if (!physicsBody || !world) return false;
-	
-	// Get current position
-	btTransform transform = physicsBody->getWorldTransform();
-	btVector3 from = transform.getOrigin();
-	
-	// Cast ray downward
-	btVector3 to = from + btVector3(0, -raycastDistance, 0);
-	
-	// Perform raycast
-	btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
-	
-	// Exclude player's own collision object
-	rayCallback.m_collisionFilterGroup = 0xFFFF;
-	rayCallback.m_collisionFilterMask = 0xFFFF & ~(physicsBody->getBroadphaseHandle()->m_collisionFilterGroup);
-	
-	// Perform raycast
-	world->rayTest(from, to, rayCallback);
-	
-	// Check if ray hit something
-	if (rayCallback.hasHit())
-	{
-		// Calculate distance to ground
-		float distance = (rayCallback.m_hitPointWorld - from).length();
-		
-		// Store hit position for slope calculations
-		lastGroundPosition = Vector3{
-			rayCallback.m_hitPointWorld.x(),
-			rayCallback.m_hitPointWorld.y(),
-			rayCallback.m_hitPointWorld.z()
-		};
-		
-		return distance < raycastDistance;
-	}
-	
-	return false;
+    if (!physicsBody || !world) return false;
+    
+    // Get current position (center of capsule)
+    btTransform transform = physicsBody->getWorldTransform();
+    btVector3 center = transform.getOrigin();
+    
+    // Calculate position at bottom of capsule
+    btVector3 from = center - btVector3(0, PLAYER_HEIGHT/2, 0);
+    
+    // Add debug output to see ray origin
+    std::cout << "Ray origin: " << from.y() << std::endl;
+    
+    // Cast ray downward with a small distance
+    float checkDistance = 0.3f;  // Small distance below feet
+    btVector3 to = from - btVector3(0, checkDistance, 0);
+    
+    // Perform raycast
+    btCollisionWorld::ClosestRayResultCallback rayCallback(from, to);
+    
+    // Exclude player's own collision object
+    rayCallback.m_collisionFilterGroup = btBroadphaseProxy::DefaultFilter;
+    rayCallback.m_collisionFilterMask = btBroadphaseProxy::AllFilter & ~btBroadphaseProxy::CharacterFilter;
+    
+    // Perform raycast
+    world->rayTest(from, to, rayCallback);
+    
+    // Add debug output
+    std::cout << "Ground check: " << (rayCallback.hasHit() ? "HIT" : "MISS") << std::endl;
+    
+    // Check if ray hit something
+    if (rayCallback.hasHit())
+    {
+        // Calculate distance to ground
+        float distance = (rayCallback.m_hitPointWorld - from).length();
+        
+        // Store hit position for slope calculations
+        lastGroundPosition = {
+            rayCallback.m_hitPointWorld.x(),
+            rayCallback.m_hitPointWorld.y(),
+            rayCallback.m_hitPointWorld.z()
+        };
+        
+        return true;  // We're directly testing a short distance, so any hit means ground
+    }
+    
+    return false;
 }
 
 void Player::setPosition(const Vector3 &position)
@@ -320,7 +421,7 @@ void Player::cleanup()
 	}
 }
 
-void Player::drawDebugCapsule(bool drawRaycast)
+void Player::drawDebugCapsule(bool drawRaycast) const
 {
 	if (!showDebug || !physicsBody)
 		return;
@@ -351,4 +452,50 @@ void Player::drawDebugCapsule(bool drawRaycast)
 		Vector3 rayEnd = {pos.x, pos.y - rayLength, pos.z};
 		DrawLine3D(pos, rayEnd, DEBUG_RAYCAST_COLOR);
 	}
+}
+
+void Player::drawDebugInfo(DebugRenderer* debugRenderer) const {
+    if (!showDebug || !debugRenderer) return;
+    
+    // Draw player capsule
+    drawDebugCapsule(true);
+    
+    // Highlight ground triangle under player
+    Vector3 position = getPosition();
+    Vector3 feetPos = {
+        position.x,
+        position.y - (PLAYER_HEIGHT / 2.0f),
+        position.z
+    };
+    
+    // Pass the physics world as the fourth parameter
+    debugRenderer->highlightTriangleAt(feetPos, 0.2f, PURPLE, world);
+    
+    // Draw velocity vector
+    btVector3 vel = physicsBody->getLinearVelocity();
+    Vector3 start = getPosition();
+    Vector3 end = {
+        start.x + vel.x() * 0.1f,
+        start.y + vel.y() * 0.1f,
+        start.z + vel.z() * 0.1f
+    };
+    
+    Color velColor = OnGround() ? GREEN : ORANGE;
+    DrawLine3D(start, end, velColor);
+    
+    // Draw movement direction
+    Vector3 moveDir = calculateMoveDirection();
+    if (moveDir.x != 0 || moveDir.z != 0) {
+        Vector3 moveEnd = {
+            start.x + moveDir.x * 1.0f,
+            start.y,
+            start.z + moveDir.z * 1.0f
+        };
+        DrawLine3D(start, moveEnd, BLUE);
+    }
+    
+    // Add ground detector debug visualization
+    if (groundDetector) {
+        groundDetector->drawDebug(debugRenderer);
+    }
 }

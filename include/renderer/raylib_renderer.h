@@ -20,7 +20,8 @@ private:
 	std::unique_ptr<ResourceManager> resourceManager;
 	std::unique_ptr<DebugRenderer> debugRenderer;
 
-	PhysicsManager physics;
+	// Reference the singleton:
+	PhysicsManager& physics = PhysicsManager::getInstance();
 	Player player;
 
 	// Add nav mesh components

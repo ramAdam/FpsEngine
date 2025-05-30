@@ -1,10 +1,32 @@
 #include "physics_manager.h"
+#include <memory>  // Add this for std::make_unique
+#include <BulletCollision/CollisionDispatch/btGhostObject.h>
 
-PhysicsManager::PhysicsManager() : groundBody(nullptr) {}
+PhysicsManager* PhysicsManager::instance = nullptr;
+
+PhysicsManager::PhysicsManager() : 
+    collisionConfiguration(nullptr),
+    dispatcher(nullptr),
+    overlappingPairCache(nullptr),
+    solver(nullptr),
+    dynamicsWorld(nullptr),
+    groundBody(nullptr)
+{
+    // Constructor body
+}
 
 PhysicsManager::~PhysicsManager()
 {
-	cleanup();
+    // Destructor body if needed
+    // Note: We removed "= default" from header and provide implementation here
+}
+
+PhysicsManager& PhysicsManager::getInstance()
+{
+    if (instance == nullptr) {
+        instance = new PhysicsManager();
+    }
+    return *instance;
 }
 
 void PhysicsManager::init()
@@ -47,7 +69,7 @@ void PhysicsManager::update(float deltaTime)
 
 void PhysicsManager::cleanup()
 {
-	// Clean up static bodies
+    // Clean up bodies before destroying the world
 	for (auto body : staticBodies)
 	{
 		if (body) {
@@ -81,6 +103,25 @@ void PhysicsManager::cleanup()
 		delete groundBody;
 		groundBody = nullptr;
 	}
+
+	// Clean up ghost objects
+	for (auto ghost : ghostObjects)
+	{
+		if (ghost) {
+			dynamicsWorld->removeCollisionObject(ghost);
+			// Note: collision shapes are cleaned up in the regular collisionShapes cleanup
+			delete ghost;
+		}
+	}
+	ghostObjects.clear();
+
+    // Smart pointers will clean themselves up when PhysicsManager is destroyed
+    // Just reset them explicitly if you need to release resources before destruction
+    dynamicsWorld.reset();
+    solver.reset();
+    overlappingPairCache.reset();
+    dispatcher.reset();
+    collisionConfiguration.reset();
 }
 
 void PhysicsManager::createCollisionFromModel(const Model &model)
@@ -143,4 +184,65 @@ void PhysicsManager::createCollisionFromModel(const Model &model)
 	collisionShapes.push_back(meshShape);
 	collisionMeshes.push_back(triangleMesh);
 	staticBodies.push_back(body);
+}
+
+btPairCachingGhostObject* PhysicsManager::createGroundSensor(btCollisionObject* parent, float radius)
+{
+    // Create ghost object
+    btPairCachingGhostObject* ghost = new btPairCachingGhostObject();
+    
+    // Create small capsule shape for ground detection
+    btCapsuleShape* shape = new btCapsuleShape(radius, 0.1f);
+    shape->setMargin(0.01f);
+    
+    // Configure ghost object
+    ghost->setCollisionShape(shape);
+    ghost->setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
+    
+    // Set up collision filtering
+    int collisionFilterGroup = btBroadphaseProxy::SensorTrigger;
+    int collisionFilterMask = btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter;
+    
+    // Exclude the parent object from collisions
+    if (parent) {
+        ghost->setUserPointer(parent);
+    }
+    
+    // Add ghost to world
+    dynamicsWorld->addCollisionObject(ghost, collisionFilterGroup, collisionFilterMask);
+    
+    // Store for cleanup
+    ghostObjects.push_back(ghost);
+    collisionShapes.push_back(shape);
+    
+    return ghost;
+}
+
+void PhysicsManager::updateGroundSensor(btPairCachingGhostObject* sensor, const btVector3& position)
+{
+    if (!sensor) return;
+    
+    // Update transform
+    btTransform transform;
+    transform.setIdentity();
+    transform.setOrigin(position);
+    sensor->setWorldTransform(transform);
+    
+    // Update AABB for broad phase
+    dynamicsWorld->updateSingleAabb(sensor);
+}
+
+bool PhysicsManager::checkGroundContact(btPairCachingGhostObject* sensor)
+{
+    if (!sensor) return false;
+    
+    // Check for overlapping objects
+    int numOverlapping = sensor->getNumOverlappingObjects();
+    
+    // Basic check - if anything overlaps, we're on ground
+    if (numOverlapping > 0) {
+        return true;
+    }
+    
+    return false;
 }
